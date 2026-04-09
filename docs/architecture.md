@@ -61,8 +61,21 @@ The app uses a repository interface with a localStorage adapter. That keeps pers
 
 ## Quarantine Behavior
 - Unrecoverable payloads are preserved under a quarantine key instead of being dropped
-- Quarantine entries keep failure stage, detected version, migration steps, timestamp, and raw payload
+- Quarantine entries keep failure stage, failure category, detected version, migration steps, timestamp, and raw payload
 - The app exposes migration/quarantine status in the workspace so recovery is inspectable
+
+## Recovery Flow
+- A quarantine inspector reads stored quarantine entries through the repository and application service
+- Export serializes the quarantined entry into an inspectable JSON document without mutating storage
+- Manual recovery parses pasted or imported JSON, unwraps exported quarantine documents when present, then reuses the normal migration + schema validation path
+- Successful recovery writes the recovered projects into active storage
+- Failed recovery leaves active storage and quarantine untouched
+
+## Compare / Review Surface
+- Recovery preview reuses the same non-mutating hydration path as recovery, but does not write to active storage
+- The comparison model lives in the application layer and summarizes architecture-level differences rather than attempting a generic deep diff
+- Review focuses on project and intent scalar changes, MVP and expansion scope summaries, and added/removed/changed entities across the main blueprint collections
+- The compare surface is a decision aid for quarantine recovery, not revision history
 
 ## Adding Future Migrations
 - Add a new ordered step to the migration registry

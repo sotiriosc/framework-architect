@@ -1,0 +1,199 @@
+import { describe, expect, it } from "vitest";
+
+import { BlueprintService } from "@/application/services/blueprintService";
+import { LocalProjectRepository } from "@/persistence/localProjectRepository";
+import { projectsQuarantineStorageKey, projectsStorageKey } from "@/persistence/storageKeys";
+import { createQuarantinedPayload, createStoredProjectsDocument } from "@/persistence/types";
+import { createSeedBlueprint } from "@/seed/exampleBlueprint";
+
+type TestStorage = {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+};
+
+const createTestStorage = (initial: Record<string, string> = {}): TestStorage => {
+  const state = new Map(Object.entries(initial));
+
+  return {
+    getItem: (key) => state.get(key) ?? null,
+    setItem: (key, value) => {
+      state.set(key, value);
+    },
+    removeItem: (key) => {
+      state.delete(key);
+    },
+  };
+};
+
+const createQuarantineFixture = () =>
+  createQuarantinedPayload({
+    storageKey: projectsStorageKey,
+    detectedStorageVersion: 1,
+    failureStage: "migrate",
+    failureCategory: "migration",
+    reason: "Fixture quarantine entry",
+    rawPayload: { broken: true },
+    migrationSteps: ["Fixture migration failure"],
+    fingerprint: "fixture",
+  });
+
+const setupService = (storage: TestStorage) => {
+  const repository = new LocalProjectRepository(storage);
+  const service = new BlueprintService(repository);
+
+  return {
+    repository,
+    service,
+  };
+};
+
+describe("quarantine recovery", () => {
+  it("lists and retrieves quarantined payload details", () => {
+    const storage = createTestStorage();
+    const quarantine = createQuarantineFixture();
+    storage.setItem(projectsQuarantineStorageKey, JSON.stringify([quarantine]));
+
+    const { service } = setupService(storage);
+    const listed = service.listQuarantinedPayloads();
+    const selected = service.getQuarantinedPayload(quarantine.id);
+
+    expect(listed).toHaveLength(1);
+    expect(listed[0]?.failureCategory).toBe("migration");
+    expect(selected?.reason).toBe("Fixture quarantine entry");
+    expect(selected?.rawPayload).toEqual({ broken: true });
+  });
+
+  it("exports quarantine payloads without mutating storage", () => {
+    const storage = createTestStorage();
+    const quarantine = createQuarantineFixture();
+    storage.setItem(projectsQuarantineStorageKey, JSON.stringify([quarantine]));
+
+    const { repository, service } = setupService(storage);
+    const before = repository.listQuarantinedPayloads();
+    const exported = service.exportQuarantinedPayload(quarantine.id);
+    const after = repository.listQuarantinedPayloads();
+
+    expect(exported).not.toBeNull();
+    expect(JSON.parse(exported?.content ?? "{}")).toMatchObject({
+      exportVersion: 1,
+      quarantine: {
+        id: quarantine.id,
+        rawPayload: { broken: true },
+      },
+    });
+    expect(after).toEqual(before);
+  });
+
+  it("restores repaired JSON into active state only after successful recovery", () => {
+    const storage = createTestStorage();
+    const quarantine = createQuarantineFixture();
+    const seed = createSeedBlueprint();
+    storage.setItem(projectsQuarantineStorageKey, JSON.stringify([quarantine]));
+
+    const { repository, service } = setupService(storage);
+    const result = service.recoverQuarantinedPayload({
+      quarantineId: quarantine.id,
+      repairedJson: JSON.stringify(createStoredProjectsDocument([seed])),
+    });
+
+    expect(result.success).toBe(true);
+    expect(repository.loadAll().projects[0]?.project.id).toBe(seed.project.id);
+    expect(repository.listQuarantinedPayloads()).toHaveLength(1);
+  });
+
+  it("keeps quarantine and active state intact when recovery JSON is invalid", () => {
+    const seed = createSeedBlueprint();
+    const quarantine = createQuarantineFixture();
+    const storage = createTestStorage({
+      [projectsStorageKey]: JSON.stringify(createStoredProjectsDocument([seed])),
+      [projectsQuarantineStorageKey]: JSON.stringify([quarantine]),
+    });
+
+    const { repository, service } = setupService(storage);
+    const before = repository.loadAll().projects;
+    const result = service.recoverQuarantinedPayload({
+      quarantineId: quarantine.id,
+      repairedJson: "{not valid json",
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new Error("Expected recovery to fail for invalid JSON.");
+    }
+    expect(result.failureCategory).toBe("parse");
+    expect(repository.loadAll().projects).toEqual(before);
+    expect(repository.listQuarantinedPayloads()).toHaveLength(1);
+  });
+
+  it("does not replace active state when repaired payload still fails recovery", () => {
+    const seed = createSeedBlueprint();
+    const quarantine = createQuarantineFixture();
+    const storage = createTestStorage({
+      [projectsStorageKey]: JSON.stringify(createStoredProjectsDocument([seed])),
+      [projectsQuarantineStorageKey]: JSON.stringify([quarantine]),
+    });
+
+    const { repository, service } = setupService(storage);
+    const before = repository.loadAll().projects;
+    const result = service.recoverQuarantinedPayload({
+      quarantineId: quarantine.id,
+      repairedJson: JSON.stringify({ unsupported: true }),
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new Error("Expected recovery to fail for unsupported repaired payload.");
+    }
+    expect(repository.loadAll().projects).toEqual(before);
+    expect(repository.listQuarantinedPayloads()).toHaveLength(1);
+  });
+
+  it("accepts exported quarantine documents during recovery", () => {
+    const storage = createTestStorage();
+    const quarantine = createQuarantineFixture();
+    const seed = createSeedBlueprint();
+    storage.setItem(projectsQuarantineStorageKey, JSON.stringify([quarantine]));
+
+    const { repository, service } = setupService(storage);
+    const exported = JSON.parse(service.exportQuarantinedPayload(quarantine.id)?.content ?? "{}") as {
+      quarantine?: { rawPayload?: unknown };
+    };
+
+    exported.quarantine = {
+      ...(exported.quarantine ?? {}),
+      rawPayload: createStoredProjectsDocument([seed]),
+    };
+
+    const result = service.recoverQuarantinedPayload({
+      quarantineId: quarantine.id,
+      repairedJson: JSON.stringify(exported),
+    });
+
+    expect(result.success).toBe(true);
+    expect(repository.loadAll().projects[0]?.project.id).toBe(seed.project.id);
+  });
+
+  it("clears quarantine entries deliberately", () => {
+    const storage = createTestStorage();
+    const first = createQuarantineFixture();
+    const second = createQuarantinedPayload({
+      storageKey: projectsStorageKey,
+      detectedStorageVersion: null,
+      failureStage: "validate",
+      failureCategory: "validation",
+      reason: "Second fixture",
+      rawPayload: { alsoBroken: true },
+      migrationSteps: ["Fixture validation failure"],
+      fingerprint: "fixture-2",
+    });
+    storage.setItem(projectsQuarantineStorageKey, JSON.stringify([first, second]));
+
+    const { service } = setupService(storage);
+    service.clearQuarantinedPayload(first.id);
+    expect(service.listQuarantinedPayloads()).toHaveLength(1);
+
+    service.clearQuarantinedPayload();
+    expect(service.listQuarantinedPayloads()).toHaveLength(0);
+  });
+});

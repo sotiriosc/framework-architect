@@ -44,6 +44,19 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - Quarantine entries keep the original payload, failure stage, detected version, migration steps, and timestamp
 - The active persistence key is never silently reseeded over quarantined data
 
+## Quarantine Recovery
+- Quarantined entries can be inspected in-app with failure reason, stage, detected version, and raw payload preview
+- Export writes an inspectable JSON file containing the quarantined metadata and raw payload without mutating the stored entry
+- Manual recovery accepts pasted JSON or an imported JSON file, then runs that payload through the same migration and schema validation path as normal load
+- Active storage is only replaced after recovery succeeds
+- Clearing quarantine entries is explicit and never automatic
+
+## Recovery Preview And Compare
+- Recovery preview is non-mutating: it hydrates a candidate through the same migration and schema validation path without writing to active storage
+- The compare surface summarizes meaningful structural changes against the current active blueprint instead of showing a full generic JSON diff
+- Compared sections include project and intent scalar fields, MVP and expansion scope summaries, and entity collections such as domains, functions, components, dependencies, rules, and phases
+- Preview review helps decide whether to restore or clear quarantine; it is not revision history
+
 ## Adding Future Migrations
 1. Add a new `fromVersion -> toVersion` step in `src/persistence/migrations.ts`
 2. Keep the step deterministic and focused on data shape evolution

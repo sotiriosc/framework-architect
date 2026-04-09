@@ -35,6 +35,10 @@ button:disabled {
   opacity: 0.5;
 }
 
+.button-secondary {
+  background: #fffdf9;
+}
+
 input,
 textarea,
 select {
@@ -136,6 +140,22 @@ textarea {
   display: flex;
   justify-content: flex-end;
   margin-top: 1rem;
+}
+
+.button-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+}
+
+.compare-section {
+  margin-top: 1rem;
+}
+
+.compare-section h3 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
 }
 
 .collection-editor {
@@ -247,6 +267,11 @@ textarea {
 .status-banner--error {
   background: #f7d7d7;
   color: #702020;
+}
+
+.status-banner--success {
+  background: #dff2df;
+  color: #23592f;
 }
 
 @media (max-width: 1100px) {

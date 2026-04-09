@@ -3,6 +3,7 @@ import type {
   QuarantinedPayload,
   RepositoryLoadReport,
   RepositoryLoadResult,
+  StoredPayloadHydrationResult,
 } from "@/persistence/types";
 
 export interface StorageLike {
@@ -12,6 +13,7 @@ export interface StorageLike {
 }
 
 export interface ProjectRepository {
+  hydrateStoredPayload(rawPayload: unknown): StoredPayloadHydrationResult;
   loadAll(): RepositoryLoadResult;
   list(): ProjectBlueprint[];
   find(projectId: string): ProjectBlueprint | undefined;

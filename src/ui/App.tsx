@@ -7,6 +7,7 @@ import { MemoryViewer } from "@/ui/components/MemoryViewer";
 import { BlueprintViewer } from "@/ui/components/BlueprintViewer";
 import { ProjectForm } from "@/ui/components/ProjectForm";
 import { PersistenceStatusPanel } from "@/ui/components/PersistenceStatusPanel";
+import { QuarantineInspectorPanel } from "@/ui/components/QuarantineInspectorPanel";
 import { SectionCard } from "@/ui/components/SectionCard";
 import { ValidationPanel } from "@/ui/components/ValidationPanel";
 import {
@@ -453,6 +454,26 @@ const App = () => {
           <PersistenceStatusPanel
             loadReport={workspace.loadReport}
             quarantinedPayloads={workspace.quarantinedPayloads}
+          />
+          <QuarantineInspectorPanel
+            quarantinedPayloads={workspace.quarantinedPayloads}
+            selectedEntry={
+              workspace.selectedQuarantineId
+                ? workspace.quarantinedPayloads.find((entry) => entry.id === workspace.selectedQuarantineId) ?? null
+                : null
+            }
+            recoveryDraft={workspace.recoveryDraft}
+            previewResult={workspace.quarantinePreview}
+            showPreviewJson={workspace.showPreviewJson}
+            feedback={workspace.quarantineFeedback}
+            onSelectEntry={workspace.selectQuarantinedPayload}
+            onRecoveryDraftChange={workspace.updateRecoveryDraft}
+            onImportFile={workspace.importRecoveryDraftFile}
+            onExport={workspace.exportQuarantinedPayload}
+            onPreview={workspace.previewSelectedQuarantine}
+            onTogglePreviewJson={workspace.togglePreviewJson}
+            onRecover={workspace.recoverSelectedQuarantine}
+            onClear={workspace.clearQuarantinedPayload}
           />
           {workspace.draftBlueprint ? (
             <>

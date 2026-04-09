@@ -6,9 +6,21 @@ import {
   createProject,
 } from "@/domain/defaults";
 import type { MemoryState, ProjectBlueprint } from "@/domain/models";
+import {
+  compareBlueprints,
+  type BlueprintCompareSummary,
+} from "@/application/review/compareBlueprints";
 import { nowIso } from "@/lib/identity";
 import type { ProjectRepository } from "@/persistence/projectRepository";
-import type { QuarantinedPayload, RepositoryLoadReport } from "@/persistence/types";
+import type {
+  QuarantineExportDocument,
+  QuarantinedPayload,
+  QuarantineFailureCategory,
+  QuarantineFailureStage,
+  RepositoryLoadReport,
+  StoredProjectsDocument,
+} from "@/persistence/types";
+import { QuarantineExportDocumentSchema, QuarantinedPayloadSchema } from "@/persistence/types";
 import { ProjectBlueprintSchema } from "@/schema";
 import { createSeedBlueprint } from "@/seed/exampleBlueprint";
 import { extractIntentFromRawIdea } from "@/application/intake/extractIntent";
@@ -66,6 +78,118 @@ export type BlueprintBootstrapResult = {
   quarantinedPayloads: QuarantinedPayload[];
 };
 
+export type QuarantineExportFile = {
+  fileName: string;
+  content: string;
+};
+
+export type QuarantineRecoverySuccess = {
+  success: true;
+  selectedProjectId: string | null;
+  projects: ProjectBlueprint[];
+  report: RepositoryLoadReport;
+  message: string;
+};
+
+export type QuarantineRecoveryFailure = {
+  success: false;
+  failureStage: QuarantineFailureStage;
+  failureCategory: QuarantineFailureCategory;
+  detectedStorageVersion: number | null;
+  migrationSteps: string[];
+  reason: string;
+};
+
+export type QuarantineRecoveryResult = QuarantineRecoverySuccess | QuarantineRecoveryFailure;
+
+export type QuarantinePreviewSuccess = {
+  success: true;
+  report: RepositoryLoadReport;
+  candidateDocument: StoredProjectsDocument;
+  compare: BlueprintCompareSummary;
+  message: string;
+};
+
+export type QuarantinePreviewResult = QuarantinePreviewSuccess | QuarantineRecoveryFailure;
+
+const createQuarantineExport = (entry: QuarantinedPayload): QuarantineExportDocument => ({
+  exportVersion: 1,
+  quarantine: entry,
+});
+
+const extractRecoveryPayload = (input: unknown): unknown => {
+  const exportDocument = QuarantineExportDocumentSchema.safeParse(input);
+  if (exportDocument.success) {
+    return exportDocument.data.quarantine.rawPayload;
+  }
+
+  const quarantineEntry = QuarantinedPayloadSchema.safeParse(input);
+  if (quarantineEntry.success) {
+    return quarantineEntry.data.rawPayload;
+  }
+
+  return input;
+};
+
+const recoveryFailure = (input: {
+  failureStage: QuarantineFailureStage;
+  failureCategory: QuarantineFailureCategory;
+  detectedStorageVersion: number | null;
+  migrationSteps: string[];
+  reason: string;
+}): QuarantineRecoveryFailure => ({
+  success: false,
+  failureStage: input.failureStage,
+  failureCategory: input.failureCategory,
+  detectedStorageVersion: input.detectedStorageVersion,
+  migrationSteps: input.migrationSteps,
+  reason: input.reason,
+});
+
+const resolveRecoveryPayload = (
+  entry: QuarantinedPayload,
+  repairedJson?: string,
+): { success: true; payload: unknown } | QuarantineRecoveryFailure => {
+  if (repairedJson === undefined) {
+    return {
+      success: true,
+      payload: entry.rawPayload,
+    };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(repairedJson);
+  } catch (error) {
+    return recoveryFailure({
+      failureStage: "read",
+      failureCategory: "parse",
+      detectedStorageVersion: null,
+      migrationSteps: ["Failed to parse the supplied recovery JSON."],
+      reason: error instanceof Error ? error.message : "Recovery JSON could not be parsed.",
+    });
+  }
+
+  return {
+    success: true,
+    payload: extractRecoveryPayload(parsed),
+  };
+};
+
+const resolveCandidateProject = (
+  projects: ProjectBlueprint[],
+  activeBlueprint: ProjectBlueprint | null,
+): ProjectBlueprint | null => {
+  if (activeBlueprint) {
+    const matched = projects.find((project) => project.project.id === activeBlueprint.project.id);
+    if (matched) {
+      return matched;
+    }
+  }
+
+  return projects[0] ?? null;
+};
+
 export class BlueprintService {
   constructor(private readonly repository: ProjectRepository) {}
 
@@ -119,6 +243,127 @@ export class BlueprintService {
 
     const blueprint = createEmptyBlueprint(project, intent, outcome);
     return this.saveBlueprint(blueprint, "Initial project created from raw idea.");
+  }
+
+  listQuarantinedPayloads(): QuarantinedPayload[] {
+    return this.repository.listQuarantinedPayloads();
+  }
+
+  getQuarantinedPayload(quarantineId: string): QuarantinedPayload | null {
+    return this.repository.getQuarantinedPayload(quarantineId) ?? null;
+  }
+
+  exportQuarantinedPayload(quarantineId: string): QuarantineExportFile | null {
+    const entry = this.repository.getQuarantinedPayload(quarantineId);
+
+    if (!entry) {
+      return null;
+    }
+
+    return {
+      fileName: `framework-architect-quarantine-${entry.id}.json`,
+      content: JSON.stringify(createQuarantineExport(entry), null, 2),
+    };
+  }
+
+  previewQuarantinedPayload(input: {
+    quarantineId: string;
+    repairedJson?: string;
+    activeBlueprint?: ProjectBlueprint | null;
+  }): QuarantinePreviewResult {
+    const entry = this.repository.getQuarantinedPayload(input.quarantineId);
+    if (!entry) {
+      return recoveryFailure({
+        failureStage: "detect",
+        failureCategory: "format",
+        detectedStorageVersion: null,
+        migrationSteps: [],
+        reason: "Quarantine entry was not found.",
+      });
+    }
+
+    const recoveryPayload = resolveRecoveryPayload(entry, input.repairedJson);
+    if (!recoveryPayload.success) {
+      return recoveryPayload;
+    }
+
+    const hydrated = this.repository.hydrateStoredPayload(recoveryPayload.payload);
+
+    if (!hydrated.success) {
+      return hydrated;
+    }
+
+    const activeBlueprint = input.activeBlueprint ?? null;
+    const candidateProject = resolveCandidateProject(hydrated.document.projects, activeBlueprint);
+    const compare = compareBlueprints({
+      activeBlueprint,
+      candidateBlueprint: candidateProject,
+    });
+
+    return {
+      success: true,
+      report: hydrated.report,
+      candidateDocument: hydrated.document,
+      compare,
+      message: compare.identical
+        ? "Preview recovery succeeded. The recovered candidate matches the current active blueprint."
+        : "Preview recovery succeeded. Review the structural differences before restoring or clearing quarantine.",
+    };
+  }
+
+  recoverQuarantinedPayload(input: {
+    quarantineId: string;
+    repairedJson: string;
+    clearOnSuccess?: boolean;
+  }): QuarantineRecoveryResult {
+    const entry = this.repository.getQuarantinedPayload(input.quarantineId);
+    if (!entry) {
+      return recoveryFailure({
+        failureStage: "detect",
+        failureCategory: "format",
+        detectedStorageVersion: null,
+        migrationSteps: [],
+        reason: "Quarantine entry was not found.",
+      });
+    }
+
+    const recoveryPayload = resolveRecoveryPayload(entry, input.repairedJson);
+    if (!recoveryPayload.success) {
+      return recoveryPayload;
+    }
+
+    const hydrated = this.repository.hydrateStoredPayload(recoveryPayload.payload);
+
+    if (!hydrated.success) {
+      return hydrated;
+    }
+
+    this.repository.saveAll(hydrated.document.projects);
+    const selectedProjectId =
+      this.repository.getSelectedProjectId() &&
+      hydrated.document.projects.some((project) => project.project.id === this.repository.getSelectedProjectId())
+        ? this.repository.getSelectedProjectId()
+        : hydrated.document.projects[0]?.project.id ?? null;
+
+    this.repository.setSelectedProjectId(selectedProjectId);
+
+    if (input.clearOnSuccess) {
+      this.repository.clearQuarantinedPayloads(entry.id);
+    }
+
+    return {
+      success: true,
+      selectedProjectId,
+      projects: hydrated.document.projects,
+      report: hydrated.report,
+      message: input.clearOnSuccess
+        ? "Recovered payload restored into active storage and the quarantine entry was cleared."
+        : "Recovered payload restored into active storage. The original quarantine entry was preserved until you clear it.",
+    };
+  }
+
+  clearQuarantinedPayload(quarantineId?: string): void {
+    this.repository.clearQuarantinedPayloads(quarantineId);
   }
 
   reextractIntent(blueprint: ProjectBlueprint): ProjectBlueprint {

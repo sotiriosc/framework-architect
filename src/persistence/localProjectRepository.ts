@@ -10,9 +10,12 @@ import {
   createQuarantinedPayload,
   createRepositoryLoadReport,
   createStoredProjectsDocument,
+  currentStorageVersion,
   type QuarantinedPayload,
+  type QuarantineFailureCategory,
   type RepositoryLoadReport,
   type RepositoryLoadResult,
+  type StoredPayloadHydrationResult,
   QuarantinedPayloadSchema,
   StoredProjectsDocumentSchema,
 } from "@/persistence/types";
@@ -41,6 +44,33 @@ const resolveStorage = (storage?: StorageLike): StorageLike => {
   }
 
   return createMemoryStorage();
+};
+
+const classifyHydrationFailure = (input: {
+  failureStage: QuarantinedPayload["failureStage"];
+  detectedStorageVersion: number | null;
+}): QuarantineFailureCategory => {
+  if (input.failureStage === "read") {
+    return "parse";
+  }
+
+  if (
+    input.failureStage === "detect" &&
+    input.detectedStorageVersion !== null &&
+    input.detectedStorageVersion > currentStorageVersion
+  ) {
+    return "unsupported-version";
+  }
+
+  if (input.failureStage === "detect") {
+    return "format";
+  }
+
+  if (input.failureStage === "validate") {
+    return "validation";
+  }
+
+  return "migration";
 };
 
 export class LocalProjectRepository implements ProjectRepository {
@@ -79,6 +109,7 @@ export class LocalProjectRepository implements ProjectRepository {
     rawPayload: unknown;
     detectedStorageVersion: number | null;
     failureStage: QuarantinedPayload["failureStage"];
+    failureCategory: QuarantinedPayload["failureCategory"];
     reason: string;
     migrationSteps: string[];
     fingerprint: string;
@@ -94,6 +125,7 @@ export class LocalProjectRepository implements ProjectRepository {
       storageKey: projectsStorageKey,
       detectedStorageVersion: input.detectedStorageVersion,
       failureStage: input.failureStage,
+      failureCategory: input.failureCategory,
       reason: input.reason,
       rawPayload: input.rawPayload,
       migrationSteps: input.migrationSteps,
@@ -108,6 +140,59 @@ export class LocalProjectRepository implements ProjectRepository {
     const document = createStoredProjectsDocument(projects);
     this.storage.setItem(projectsStorageKey, JSON.stringify(document));
     return projects;
+  }
+
+  hydrateStoredPayload(rawPayload: unknown): StoredPayloadHydrationResult {
+    const quarantineCount = this.readQuarantinedPayloads().length;
+    const parsedCurrentDocument = StoredProjectsDocumentSchema.safeParse(rawPayload);
+
+    if (parsedCurrentDocument.success) {
+      return {
+        success: true,
+        document: parsedCurrentDocument.data,
+        report: createRepositoryLoadReport({
+          status: "loaded",
+          detectedStorageVersion: parsedCurrentDocument.data.storageVersion,
+          quarantineCount,
+          message: quarantineCount > 0 ? "Projects loaded. Quarantined payloads also exist." : null,
+        }),
+      };
+    }
+
+    try {
+      const migrated = upgradeStoredProjectsPayload(rawPayload);
+      return {
+        success: true,
+        document: migrated.document,
+        report: createRepositoryLoadReport({
+          ...migrated.report,
+          quarantineCount,
+          message:
+            quarantineCount > 0 && migrated.report.message
+              ? `${migrated.report.message} Quarantined payloads also exist.`
+              : migrated.report.message,
+        }),
+      };
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "Stored payload could not be migrated.";
+      const failureStage = isPersistenceMigrationError(error) ? error.failureStage : "migrate";
+      const detectedStorageVersion = isPersistenceMigrationError(error)
+        ? error.detectedStorageVersion
+        : null;
+      const migrationSteps = isPersistenceMigrationError(error) ? error.migrationSteps : [];
+
+      return {
+        success: false,
+        detectedStorageVersion,
+        failureStage,
+        failureCategory: classifyHydrationFailure({
+          failureStage,
+          detectedStorageVersion,
+        }),
+        migrationSteps,
+        reason,
+      };
+    }
   }
 
   loadAll(): RepositoryLoadResult {
@@ -136,6 +221,7 @@ export class LocalProjectRepository implements ProjectRepository {
         rawPayload: raw,
         detectedStorageVersion: null,
         failureStage: "read",
+        failureCategory: "parse",
         reason: error instanceof Error ? error.message : "Stored payload is not valid JSON.",
         migrationSteps: ["Failed to parse stored JSON payload."],
         fingerprint: raw,
@@ -153,65 +239,37 @@ export class LocalProjectRepository implements ProjectRepository {
       };
     }
 
-    try {
-      const parsedCurrentDocument = StoredProjectsDocumentSchema.safeParse(rawPayload);
-      if (parsedCurrentDocument.success) {
-        const report = createRepositoryLoadReport({
-          status: "loaded",
-          detectedStorageVersion: parsedCurrentDocument.data.storageVersion,
-          quarantineCount: currentQuarantine.length,
-          message: currentQuarantine.length > 0 ? "Projects loaded. Quarantined payloads also exist." : null,
-        });
-        this.lastLoadReport = report;
-
-        return {
-          projects: parsedCurrentDocument.data.projects,
-          report,
-        };
+    const hydrated = this.hydrateStoredPayload(rawPayload);
+    if (hydrated.success) {
+      if (hydrated.report.migrated) {
+        this.writeCurrentDocument(hydrated.document.projects);
       }
 
-      const migrated = upgradeStoredProjectsPayload(rawPayload);
-      if (migrated.report.migrated) {
-        this.writeCurrentDocument(migrated.document.projects);
-      }
-
-      const latestQuarantineCount = this.readQuarantinedPayloads().length;
-      const report = createRepositoryLoadReport({
-        ...migrated.report,
-        quarantineCount: latestQuarantineCount,
-        message:
-          latestQuarantineCount > 0 && migrated.report.message
-            ? `${migrated.report.message} Quarantined payloads also exist.`
-            : migrated.report.message,
-      });
-      this.lastLoadReport = report;
+      this.lastLoadReport = hydrated.report;
 
       return {
-        projects: migrated.document.projects,
-        report,
+        projects: hydrated.document.projects,
+        report: hydrated.report,
       };
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : "Stored payload could not be migrated.";
-      const failureStage = isPersistenceMigrationError(error) ? error.failureStage : "migrate";
-      const detectedStorageVersion = isPersistenceMigrationError(error)
-        ? error.detectedStorageVersion
-        : null;
-      const migrationSteps = isPersistenceMigrationError(error) ? error.migrationSteps : [];
+    }
+
+    {
       const fingerprint = JSON.stringify(rawPayload);
       const quarantineEntries = this.quarantineRawPayload({
         rawPayload,
-        detectedStorageVersion,
-        failureStage,
-        reason,
-        migrationSteps,
+        detectedStorageVersion: hydrated.detectedStorageVersion,
+        failureStage: hydrated.failureStage,
+        failureCategory: hydrated.failureCategory,
+        reason: hydrated.reason,
+        migrationSteps: hydrated.migrationSteps,
         fingerprint,
       });
       const report = createRepositoryLoadReport({
         status: "quarantined",
-        detectedStorageVersion,
+        detectedStorageVersion: hydrated.detectedStorageVersion,
         quarantineCount: quarantineEntries.length,
-        migrationSteps,
-        message: `${reason} The original payload was quarantined instead of being discarded.`,
+        migrationSteps: hydrated.migrationSteps,
+        message: `${hydrated.reason} The original payload was quarantined instead of being discarded.`,
       });
       this.lastLoadReport = report;
 
