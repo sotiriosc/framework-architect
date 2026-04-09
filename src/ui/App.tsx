@@ -8,6 +8,7 @@ import { BlueprintViewer } from "@/ui/components/BlueprintViewer";
 import { ProjectForm } from "@/ui/components/ProjectForm";
 import { PersistenceStatusPanel } from "@/ui/components/PersistenceStatusPanel";
 import { QuarantineInspectorPanel } from "@/ui/components/QuarantineInspectorPanel";
+import { RevisionHistoryPanel } from "@/ui/components/RevisionHistoryPanel";
 import { SectionCard } from "@/ui/components/SectionCard";
 import { ValidationPanel } from "@/ui/components/ValidationPanel";
 import {
@@ -464,6 +465,7 @@ const App = () => {
             }
             recoveryDraft={workspace.recoveryDraft}
             previewResult={workspace.quarantinePreview}
+            restoreConfirmationChecked={workspace.restoreConfirmationChecked}
             showPreviewJson={workspace.showPreviewJson}
             feedback={workspace.quarantineFeedback}
             onSelectEntry={workspace.selectQuarantinedPayload}
@@ -471,8 +473,10 @@ const App = () => {
             onImportFile={workspace.importRecoveryDraftFile}
             onExport={workspace.exportQuarantinedPayload}
             onPreview={workspace.previewSelectedQuarantine}
+            onSelectRecoveredProject={workspace.selectRecoveredProjectForPreview}
+            onRestoreConfirmationChange={workspace.setRestoreConfirmationChecked}
             onTogglePreviewJson={workspace.togglePreviewJson}
-            onRecover={workspace.recoverSelectedQuarantine}
+            onRestore={workspace.restorePreviewCandidate}
             onClear={workspace.clearQuarantinedPayload}
           />
           {workspace.draftBlueprint ? (
@@ -480,6 +484,18 @@ const App = () => {
               <ValidationPanel
                 validation={workspace.draftBlueprint.validation}
                 projectStatus={workspace.draftBlueprint.project.status}
+              />
+              <RevisionHistoryPanel
+                revisions={workspace.projectRevisions}
+                selectedRevision={
+                  workspace.selectedRevisionId
+                    ? workspace.projectRevisions.find((revision) => revision.id === workspace.selectedRevisionId) ??
+                      null
+                    : null
+                }
+                showSnapshotJson={workspace.showRevisionSnapshotJson}
+                onSelectRevision={workspace.selectRevision}
+                onToggleSnapshotJson={workspace.toggleRevisionSnapshotJson}
               />
               <MemoryViewer memory={workspace.draftBlueprint.memory} />
               <BlueprintViewer blueprint={workspace.draftBlueprint} />

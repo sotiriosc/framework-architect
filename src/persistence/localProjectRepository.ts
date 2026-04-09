@@ -2,10 +2,12 @@ import type { ProjectBlueprint } from "@/domain/models";
 import type { ProjectRepository, StorageLike } from "@/persistence/projectRepository";
 import { isPersistenceMigrationError, upgradeStoredProjectsPayload } from "@/persistence/migrations";
 import {
+  projectRevisionsStorageKey,
   projectsQuarantineStorageKey,
   projectsStorageKey,
   selectedProjectStorageKey,
 } from "@/persistence/storageKeys";
+import { BlueprintRevisionSchema, type BlueprintRevision } from "@/persistence/revisionTypes";
 import {
   createQuarantinedPayload,
   createRepositoryLoadReport,
@@ -103,6 +105,30 @@ export class LocalProjectRepository implements ProjectRepository {
     }
 
     this.storage.setItem(projectsQuarantineStorageKey, JSON.stringify(entries));
+  }
+
+  private readProjectRevisions(): BlueprintRevision[] {
+    const raw = this.storage.getItem(projectRevisionsStorageKey);
+
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const parsed = BlueprintRevisionSchema.array().safeParse(JSON.parse(raw));
+      return parsed.success ? parsed.data : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private writeProjectRevisions(entries: BlueprintRevision[]): void {
+    if (entries.length === 0) {
+      this.storage.removeItem(projectRevisionsStorageKey);
+      return;
+    }
+
+    this.storage.setItem(projectRevisionsStorageKey, JSON.stringify(entries));
   }
 
   private quarantineRawPayload(input: {
@@ -322,6 +348,35 @@ export class LocalProjectRepository implements ProjectRepository {
 
   getLastLoadReport(): RepositoryLoadReport | null {
     return this.lastLoadReport;
+  }
+
+  appendProjectRevision(revision: BlueprintRevision): BlueprintRevision {
+    const existing = this.readProjectRevisions();
+    const latest = existing
+      .filter((entry) => entry.projectId === revision.projectId)
+      .sort((left, right) => right.revisionNumber - left.revisionNumber || right.createdAt.localeCompare(left.createdAt))[0];
+
+    if (latest && latest.meaningfulFingerprint === revision.meaningfulFingerprint) {
+      return latest;
+    }
+
+    existing.push(revision);
+    this.writeProjectRevisions(existing);
+    return revision;
+  }
+
+  listProjectRevisions(projectId: string): BlueprintRevision[] {
+    return this.readProjectRevisions()
+      .filter((revision) => revision.projectId === projectId)
+      .sort((left, right) => right.revisionNumber - left.revisionNumber || right.createdAt.localeCompare(left.createdAt));
+  }
+
+  getProjectRevision(revisionId: string): BlueprintRevision | undefined {
+    return this.readProjectRevisions().find((revision) => revision.id === revisionId);
+  }
+
+  getLatestProjectRevision(projectId: string): BlueprintRevision | undefined {
+    return this.listProjectRevisions(projectId)[0];
   }
 
   listQuarantinedPayloads(): QuarantinedPayload[] {

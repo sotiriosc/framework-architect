@@ -5,3 +5,4 @@ const namespace =
 export const projectsStorageKey = `${namespace}:projects`;
 export const selectedProjectStorageKey = `${namespace}:selected-project`;
 export const projectsQuarantineStorageKey = `${namespace}:projects-quarantine`;
+export const projectRevisionsStorageKey = `${namespace}:project-revisions`;

@@ -7,11 +7,15 @@ import {
 } from "@/domain/defaults";
 import type { MemoryState, ProjectBlueprint } from "@/domain/models";
 import {
-  compareBlueprints,
-  type BlueprintCompareSummary,
-} from "@/application/review/compareBlueprints";
+  buildRestoreCandidate,
+  type RestoreCandidate,
+  type RestoreMode,
+} from "@/application/review/buildRestoreCandidate";
+import { buildBlueprintRevision } from "@/application/review/buildBlueprintRevision";
+import { compareBlueprints } from "@/application/review/compareBlueprints";
 import { nowIso } from "@/lib/identity";
 import type { ProjectRepository } from "@/persistence/projectRepository";
+import type { BlueprintRevision, RevisionSource } from "@/persistence/revisionTypes";
 import type {
   QuarantineExportDocument,
   QuarantinedPayload,
@@ -106,11 +110,31 @@ export type QuarantinePreviewSuccess = {
   success: true;
   report: RepositoryLoadReport;
   candidateDocument: StoredProjectsDocument;
-  compare: BlueprintCompareSummary;
+  restoreCandidate: RestoreCandidate;
   message: string;
 };
 
 export type QuarantinePreviewResult = QuarantinePreviewSuccess | QuarantineRecoveryFailure;
+
+export type QuarantineRestoreSuccess = {
+  success: true;
+  selectedProjectId: string | null;
+  restoredProjectId: string;
+  restoredProjectName: string;
+  projects: ProjectBlueprint[];
+  report: RepositoryLoadReport;
+  restoreMode: RestoreMode;
+  quarantinePreserved: true;
+  message: string;
+};
+
+export type QuarantineRestoreFailure = {
+  success: false;
+  code: "preview-required" | "confirmation-required" | "selection-invalid" | "persist-failed";
+  reason: string;
+};
+
+export type QuarantineRestoreResult = QuarantineRestoreSuccess | QuarantineRestoreFailure;
 
 const createQuarantineExport = (entry: QuarantinedPayload): QuarantineExportDocument => ({
   exportVersion: 1,
@@ -176,29 +200,65 @@ const resolveRecoveryPayload = (
   };
 };
 
-const resolveCandidateProject = (
-  projects: ProjectBlueprint[],
-  activeBlueprint: ProjectBlueprint | null,
-): ProjectBlueprint | null => {
-  if (activeBlueprint) {
-    const matched = projects.find((project) => project.project.id === activeBlueprint.project.id);
-    if (matched) {
-      return matched;
-    }
-  }
-
-  return projects[0] ?? null;
-};
-
 export class BlueprintService {
   constructor(private readonly repository: ProjectRepository) {}
 
+  private recordProjectRevision(input: {
+    snapshot: ProjectBlueprint;
+    source: RevisionSource;
+    reason?: string | null;
+    relatedDecisionRecordIds?: string[];
+    summary?: string;
+  }): BlueprintRevision | null {
+    const previousRevision = this.repository.getLatestProjectRevision(input.snapshot.project.id) ?? null;
+    const revision = buildBlueprintRevision({
+      snapshot: input.snapshot,
+      previousRevision,
+      source: input.source,
+      summary: input.summary,
+      reason: input.reason,
+      relatedDecisionRecordIds: input.relatedDecisionRecordIds,
+    });
+
+    if (!revision) {
+      return null;
+    }
+
+    return this.repository.appendProjectRevision(revision);
+  }
+
+  private ensureProjectRevisionHistory(projects: ProjectBlueprint[], source: RevisionSource): void {
+    projects.forEach((project) => {
+      if (this.repository.getLatestProjectRevision(project.project.id)) {
+        return;
+      }
+
+      this.recordProjectRevision({
+        snapshot: project,
+        source,
+        reason:
+          source === "seed"
+            ? "Seed blueprint initialized for inspection."
+            : "Revision history backfilled from existing active storage.",
+      });
+    });
+  }
+
   bootstrap(): BlueprintBootstrapResult {
     let loaded = this.repository.loadAll();
+    let seeded = false;
 
     if (loaded.projects.length === 0 && loaded.report.status === "empty" && loaded.report.quarantineCount === 0) {
       this.repository.seed([createSeedBlueprint()]);
       loaded = this.repository.loadAll();
+      seeded = true;
+    }
+
+    if (loaded.projects.length > 0) {
+      this.ensureProjectRevisionHistory(
+        loaded.projects,
+        seeded ? "seed" : loaded.report.migrated ? "migration" : "system",
+      );
     }
 
     const selectedProjectIdFromStorage = this.repository.getSelectedProjectId();
@@ -266,10 +326,23 @@ export class BlueprintService {
     };
   }
 
+  listProjectRevisions(projectId: string | null): BlueprintRevision[] {
+    if (!projectId) {
+      return [];
+    }
+
+    return this.repository.listProjectRevisions(projectId);
+  }
+
+  getProjectRevision(revisionId: string): BlueprintRevision | null {
+    return this.repository.getProjectRevision(revisionId) ?? null;
+  }
+
   previewQuarantinedPayload(input: {
     quarantineId: string;
     repairedJson?: string;
     activeBlueprint?: ProjectBlueprint | null;
+    selectedRecoveredProjectId?: string | null;
   }): QuarantinePreviewResult {
     const entry = this.repository.getQuarantinedPayload(input.quarantineId);
     if (!entry) {
@@ -294,72 +367,112 @@ export class BlueprintService {
     }
 
     const activeBlueprint = input.activeBlueprint ?? null;
-    const candidateProject = resolveCandidateProject(hydrated.document.projects, activeBlueprint);
-    const compare = compareBlueprints({
+    const restoreCandidate = buildRestoreCandidate({
+      quarantineId: entry.id,
+      candidateDocument: hydrated.document,
       activeBlueprint,
-      candidateBlueprint: candidateProject,
+      existingProjects: this.repository.list(),
+      selectedRecoveredProjectId: input.selectedRecoveredProjectId,
     });
 
     return {
       success: true,
       report: hydrated.report,
       candidateDocument: hydrated.document,
-      compare,
-      message: compare.identical
-        ? "Preview recovery succeeded. The recovered candidate matches the current active blueprint."
-        : "Preview recovery succeeded. Review the structural differences before restoring or clearing quarantine.",
+      restoreCandidate,
+      message: !restoreCandidate.restoreReady
+        ? "Preview recovery succeeded, but no recovered project is available to restore."
+        : restoreCandidate.compare.identical
+          ? "Preview recovery succeeded. The selected recovered project matches the current active blueprint."
+          : "Preview recovery succeeded. Review the structural differences before restoring or clearing quarantine.",
     };
   }
 
-  recoverQuarantinedPayload(input: {
-    quarantineId: string;
-    repairedJson: string;
-    clearOnSuccess?: boolean;
-  }): QuarantineRecoveryResult {
-    const entry = this.repository.getQuarantinedPayload(input.quarantineId);
-    if (!entry) {
-      return recoveryFailure({
-        failureStage: "detect",
-        failureCategory: "format",
-        detectedStorageVersion: null,
-        migrationSteps: [],
-        reason: "Quarantine entry was not found.",
+  restorePreviewCandidate(input: {
+    preview: QuarantinePreviewResult | null;
+    confirm: boolean;
+  }): QuarantineRestoreResult {
+    if (!input.preview || !input.preview.success) {
+      return {
+        success: false,
+        code: "preview-required",
+        reason: "Run a successful recovery preview before restoring.",
+      };
+    }
+
+    if (!input.confirm) {
+      return {
+        success: false,
+        code: "confirmation-required",
+        reason: "Explicit restore confirmation is required before active storage can be updated.",
+      };
+    }
+
+    const selectedRecoveredProjectId = input.preview.restoreCandidate.selectedRecoveredProjectId;
+    if (!input.preview.restoreCandidate.restoreReady || !selectedRecoveredProjectId) {
+      return {
+        success: false,
+        code: "selection-invalid",
+        reason: "Select a recovered project before restoring.",
+      };
+    }
+
+    const recoveredProject = input.preview.candidateDocument.projects.find(
+      (project) => project.project.id === selectedRecoveredProjectId,
+    );
+
+    if (!recoveredProject) {
+      return {
+        success: false,
+        code: "selection-invalid",
+        reason: "The selected recovered project is no longer available in the preview candidate.",
+      };
+    }
+
+    try {
+      const currentProjects = this.repository.list();
+      const existingIndex = currentProjects.findIndex(
+        (project) => project.project.id === recoveredProject.project.id,
+      );
+      const nextProjects = structuredClone(currentProjects);
+
+      if (existingIndex >= 0) {
+        nextProjects[existingIndex] = structuredClone(recoveredProject);
+      } else {
+        nextProjects.push(structuredClone(recoveredProject));
+      }
+
+      this.repository.saveAll(nextProjects);
+      this.repository.setSelectedProjectId(recoveredProject.project.id);
+      const recordedRevision = this.recordProjectRevision({
+        snapshot: structuredClone(recoveredProject),
+        source: "recoveryRestore",
+        reason: `Restored from quarantine entry ${input.preview.restoreCandidate.quarantineId}.`,
       });
+
+      const loaded = this.repository.loadAll();
+
+      return {
+        success: true,
+        selectedProjectId: recoveredProject.project.id,
+        restoredProjectId: recoveredProject.project.id,
+        restoredProjectName: recoveredProject.project.name,
+        projects: loaded.projects,
+        report: loaded.report,
+        restoreMode: input.preview.restoreCandidate.restoreMode,
+        quarantinePreserved: true,
+        message:
+          input.preview.restoreCandidate.restoreMode === "append-active"
+            ? `Recovered project "${recoveredProject.project.name}" was restored into active storage as a separate project.${recordedRevision ? ` Revision ${recordedRevision.revisionNumber} was recorded.` : ""} Quarantine was preserved.`
+            : `Recovered project "${recoveredProject.project.name}" was restored into active storage and selected.${recordedRevision ? ` Revision ${recordedRevision.revisionNumber} was recorded.` : ""} Quarantine was preserved.`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        code: "persist-failed",
+        reason: error instanceof Error ? error.message : "Unable to restore the recovered project.",
+      };
     }
-
-    const recoveryPayload = resolveRecoveryPayload(entry, input.repairedJson);
-    if (!recoveryPayload.success) {
-      return recoveryPayload;
-    }
-
-    const hydrated = this.repository.hydrateStoredPayload(recoveryPayload.payload);
-
-    if (!hydrated.success) {
-      return hydrated;
-    }
-
-    this.repository.saveAll(hydrated.document.projects);
-    const selectedProjectId =
-      this.repository.getSelectedProjectId() &&
-      hydrated.document.projects.some((project) => project.project.id === this.repository.getSelectedProjectId())
-        ? this.repository.getSelectedProjectId()
-        : hydrated.document.projects[0]?.project.id ?? null;
-
-    this.repository.setSelectedProjectId(selectedProjectId);
-
-    if (input.clearOnSuccess) {
-      this.repository.clearQuarantinedPayloads(entry.id);
-    }
-
-    return {
-      success: true,
-      selectedProjectId,
-      projects: hydrated.document.projects,
-      report: hydrated.report,
-      message: input.clearOnSuccess
-        ? "Recovered payload restored into active storage and the quarantine entry was cleared."
-        : "Recovered payload restored into active storage. The original quarantine entry was preserved until you clear it.",
-    };
   }
 
   clearQuarantinedPayload(quarantineId?: string): void {
@@ -388,11 +501,23 @@ export class BlueprintService {
 
   saveBlueprint(candidate: ProjectBlueprint, reason: string): ProjectBlueprint {
     const parsed = ProjectBlueprintSchema.parse(cloneBlueprint(candidate));
+    const existing = this.repository.find(parsed.project.id);
+    if (existing) {
+      const structuralDiff = compareBlueprints({
+        activeBlueprint: existing,
+        candidateBlueprint: parsed,
+      });
+
+      if (structuralDiff.identical) {
+        return cloneBlueprint(existing);
+      }
+    }
+
     const next = cloneBlueprint(parsed);
     const stamp = nowIso();
-    const existing = this.repository.find(next.project.id);
+    const current = this.repository.find(next.project.id);
 
-    next.project.version = existing ? existing.project.version + 1 : next.project.version;
+    next.project.version = current ? current.project.version + 1 : next.project.version;
     next.project.updatedAt = stamp;
 
     next.validation = validateBlueprint(next);
@@ -405,6 +530,11 @@ export class BlueprintService {
 
     this.repository.save(next);
     this.repository.setSelectedProjectId(next.project.id);
+    this.recordProjectRevision({
+      snapshot: next,
+      source: "manualEdit",
+      reason,
+    });
 
     return next;
   }

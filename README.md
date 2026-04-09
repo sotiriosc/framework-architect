@@ -20,6 +20,7 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - Strong TypeScript domain types and Zod schemas
 - Local-first persistence for projects, blueprint data, and memory
 - Versioned storage migration with quarantine for unrecoverable payloads
+- First-class per-project revision history with structural diffs
 - Validation rules for structural governance checks
 - Minimal UI for project creation, intent/outcome editing, blueprint viewing, memory viewing, and validation review
 - A seed example blueprint for inspection and iteration
@@ -44,11 +45,23 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - Quarantine entries keep the original payload, failure stage, detected version, migration steps, and timestamp
 - The active persistence key is never silently reseeded over quarantined data
 
+## Revision History
+- Revision history is separate from active blueprint storage and separate from quarantine recovery
+- Revisions are tracked per project and persisted in their own local store
+- Each revision keeps metadata, a blueprint snapshot, and a structural diff summary
+- Revisions are created for meaningful changes only; no-op saves do not create duplicates
+- Recovery restore writes a revision with `source = recoveryRestore` when the restored snapshot differs meaningfully from the latest revision
+- Revision history is intentionally not rollback, branching, or collaboration yet
+
 ## Quarantine Recovery
 - Quarantined entries can be inspected in-app with failure reason, stage, detected version, and raw payload preview
 - Export writes an inspectable JSON file containing the quarantined metadata and raw payload without mutating the stored entry
 - Manual recovery accepts pasted JSON or an imported JSON file, then runs that payload through the same migration and schema validation path as normal load
-- Active storage is only replaced after recovery succeeds
+- Recovery preview is non-mutating and must succeed before restore is allowed
+- When a recovered candidate contains multiple projects, the user can choose which recovered project to review and restore
+- Restore requires explicit confirmation and only writes the selected recovered project from the validated preview candidate
+- Active storage is only updated after preview succeeds and restore is confirmed
+- Restoring does not clear quarantine; quarantine remains available until the user clears it deliberately
 - Clearing quarantine entries is explicit and never automatic
 
 ## Recovery Preview And Compare
@@ -56,6 +69,12 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - The compare surface summarizes meaningful structural changes against the current active blueprint instead of showing a full generic JSON diff
 - Compared sections include project and intent scalar fields, MVP and expansion scope summaries, and entity collections such as domains, functions, components, dependencies, rules, and phases
 - Preview review helps decide whether to restore or clear quarantine; it is not revision history
+- The restore target is explicit: the UI shows which recovered project is selected, what restore will do, and any warnings before confirmation
+
+## Revision Diff Summary
+- Revision diffs reuse the same architecture-oriented compare model as recovery preview
+- Captured changes include project and intent scalar fields, decision logic summaries, MVP and expansion scope summaries, and added/removed/changed entities across the main blueprint collections
+- Scope item collections, decision records, and failure modes are also tracked so meaningful blueprint changes do not disappear into a no-op save
 
 ## Adding Future Migrations
 1. Add a new `fromVersion -> toVersion` step in `src/persistence/migrations.ts`

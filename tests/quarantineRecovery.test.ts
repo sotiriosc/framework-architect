@@ -85,24 +85,83 @@ describe("quarantine recovery", () => {
     expect(after).toEqual(before);
   });
 
-  it("restores repaired JSON into active state only after successful recovery", () => {
+  it("blocks restore when no successful preview exists", () => {
+    const { service } = setupService(createTestStorage());
+
+    const result = service.restorePreviewCandidate({
+      preview: null,
+      confirm: true,
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new Error("Expected restore to be blocked without preview.");
+    }
+    expect(result.code).toBe("preview-required");
+  });
+
+  it("requires explicit confirmation before restore updates active state", () => {
     const storage = createTestStorage();
     const quarantine = createQuarantineFixture();
     const seed = createSeedBlueprint();
     storage.setItem(projectsQuarantineStorageKey, JSON.stringify([quarantine]));
 
     const { repository, service } = setupService(storage);
-    const result = service.recoverQuarantinedPayload({
+    const preview = service.previewQuarantinedPayload({
       quarantineId: quarantine.id,
       repairedJson: JSON.stringify(createStoredProjectsDocument([seed])),
     });
 
-    expect(result.success).toBe(true);
-    expect(repository.loadAll().projects[0]?.project.id).toBe(seed.project.id);
+    expect(preview.success).toBe(true);
+    const beforeProjects = repository.loadAll().projects;
+    const result = service.restorePreviewCandidate({
+      preview,
+      confirm: false,
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      throw new Error("Expected restore to require explicit confirmation.");
+    }
+    expect(result.code).toBe("confirmation-required");
+    expect(repository.loadAll().projects).toEqual(beforeProjects);
     expect(repository.listQuarantinedPayloads()).toHaveLength(1);
   });
 
-  it("keeps quarantine and active state intact when recovery JSON is invalid", () => {
+  it("restores a confirmed preview into active state and preserves quarantine", () => {
+    const active = createSeedBlueprint();
+    const recovered = createSeedBlueprint();
+    recovered.project.name = "Recovered project";
+    const quarantine = createQuarantineFixture();
+    const storage = createTestStorage({
+      [projectsStorageKey]: JSON.stringify(createStoredProjectsDocument([active])),
+      [projectsQuarantineStorageKey]: JSON.stringify([quarantine]),
+    });
+
+    const { repository, service } = setupService(storage);
+    const preview = service.previewQuarantinedPayload({
+      quarantineId: quarantine.id,
+      repairedJson: JSON.stringify(createStoredProjectsDocument([recovered])),
+      activeBlueprint: active,
+      selectedRecoveredProjectId: recovered.project.id,
+    });
+
+    expect(preview.success).toBe(true);
+    const result = service.restorePreviewCandidate({
+      preview,
+      confirm: true,
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      throw new Error("Expected restore to succeed.");
+    }
+    expect(repository.loadAll().projects.some((project) => project.project.id === recovered.project.id)).toBe(true);
+    expect(repository.getSelectedProjectId()).toBe(recovered.project.id);
+    expect(repository.listQuarantinedPayloads()).toHaveLength(1);
+  });
+
+  it("keeps quarantine and active state intact when repaired payload fails preview", () => {
     const seed = createSeedBlueprint();
     const quarantine = createQuarantineFixture();
     const storage = createTestStorage({
@@ -112,7 +171,7 @@ describe("quarantine recovery", () => {
 
     const { repository, service } = setupService(storage);
     const before = repository.loadAll().projects;
-    const result = service.recoverQuarantinedPayload({
+    const result = service.previewQuarantinedPayload({
       quarantineId: quarantine.id,
       repairedJson: "{not valid json",
     });
@@ -126,8 +185,9 @@ describe("quarantine recovery", () => {
     expect(repository.listQuarantinedPayloads()).toHaveLength(1);
   });
 
-  it("does not replace active state when repaired payload still fails recovery", () => {
+  it("does not replace active state when restore preview selection is invalid", () => {
     const seed = createSeedBlueprint();
+    const recovered = createSeedBlueprint();
     const quarantine = createQuarantineFixture();
     const storage = createTestStorage({
       [projectsStorageKey]: JSON.stringify(createStoredProjectsDocument([seed])),
@@ -136,20 +196,38 @@ describe("quarantine recovery", () => {
 
     const { repository, service } = setupService(storage);
     const before = repository.loadAll().projects;
-    const result = service.recoverQuarantinedPayload({
+    const preview = service.previewQuarantinedPayload({
       quarantineId: quarantine.id,
-      repairedJson: JSON.stringify({ unsupported: true }),
+      repairedJson: JSON.stringify(createStoredProjectsDocument([recovered])),
+    });
+
+    expect(preview.success).toBe(true);
+    if (!preview.success) {
+      throw new Error("Expected preview to succeed.");
+    }
+
+    const result = service.restorePreviewCandidate({
+      preview: {
+        ...preview,
+        restoreCandidate: {
+          ...preview.restoreCandidate,
+          selectedRecoveredProjectId: "proj_missing",
+          restoreReady: true,
+        },
+      },
+      confirm: true,
     });
 
     expect(result.success).toBe(false);
     if (result.success) {
-      throw new Error("Expected recovery to fail for unsupported repaired payload.");
+      throw new Error("Expected restore to fail for invalid selected recovered project.");
     }
+    expect(result.code).toBe("selection-invalid");
     expect(repository.loadAll().projects).toEqual(before);
     expect(repository.listQuarantinedPayloads()).toHaveLength(1);
   });
 
-  it("accepts exported quarantine documents during recovery", () => {
+  it("accepts exported quarantine documents during preview and restore", () => {
     const storage = createTestStorage();
     const quarantine = createQuarantineFixture();
     const seed = createSeedBlueprint();
@@ -165,9 +243,15 @@ describe("quarantine recovery", () => {
       rawPayload: createStoredProjectsDocument([seed]),
     };
 
-    const result = service.recoverQuarantinedPayload({
+    const preview = service.previewQuarantinedPayload({
       quarantineId: quarantine.id,
       repairedJson: JSON.stringify(exported),
+    });
+
+    expect(preview.success).toBe(true);
+    const result = service.restorePreviewCandidate({
+      preview,
+      confirm: true,
     });
 
     expect(result.success).toBe(true);

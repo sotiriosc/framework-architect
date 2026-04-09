@@ -14,6 +14,7 @@ type QuarantineInspectorPanelProps = {
   selectedEntry: QuarantinedPayload | null;
   recoveryDraft: string;
   previewResult: QuarantinePreviewResult | null;
+  restoreConfirmationChecked: boolean;
   showPreviewJson: boolean;
   feedback: QuarantineFeedback;
   onSelectEntry: (quarantineId: string | null) => void;
@@ -21,8 +22,10 @@ type QuarantineInspectorPanelProps = {
   onImportFile: (file: File) => Promise<void> | void;
   onExport: (quarantineId: string | null) => { fileName: string; content: string } | null;
   onPreview: () => void;
+  onSelectRecoveredProject: (recoveredProjectId: string) => void;
+  onRestoreConfirmationChange: (checked: boolean) => void;
   onTogglePreviewJson: () => void;
-  onRecover: () => void;
+  onRestore: () => void;
   onClear: (quarantineId?: string) => void;
 };
 
@@ -44,6 +47,7 @@ export const QuarantineInspectorPanel = ({
   selectedEntry,
   recoveryDraft,
   previewResult,
+  restoreConfirmationChecked,
   showPreviewJson,
   feedback,
   onSelectEntry,
@@ -51,8 +55,10 @@ export const QuarantineInspectorPanel = ({
   onImportFile,
   onExport,
   onPreview,
+  onSelectRecoveredProject,
+  onRestoreConfirmationChange,
   onTogglePreviewJson,
-  onRecover,
+  onRestore,
   onClear,
 }: QuarantineInspectorPanelProps) => {
   const handleExport = () => {
@@ -176,30 +182,65 @@ export const QuarantineInspectorPanel = ({
                     <div className="validation-summary">
                       <div>
                         <span className="eyebrow">Active baseline</span>
-                        <strong>{previewResult.compare.activeProjectName ?? "None selected"}</strong>
+                        <strong>
+                          {previewResult.restoreCandidate.compare.activeProjectName ?? "None selected"}
+                        </strong>
                       </div>
                       <div>
-                        <span className="eyebrow">Recovered candidate</span>
-                        <strong>{previewResult.compare.candidateProjectName ?? "No recovered project"}</strong>
+                        <span className="eyebrow">Restore target</span>
+                        <strong>
+                          {previewResult.restoreCandidate.selectedRecoveredProjectName ??
+                            "No recovered project"}
+                        </strong>
                       </div>
                       <div>
                         <span className="eyebrow">Total changes</span>
-                        <strong>{previewResult.compare.totalChangeCount}</strong>
+                        <strong>{previewResult.restoreCandidate.compare.totalChangeCount}</strong>
                       </div>
                     </div>
 
-                    {previewResult.compare.identical ? (
+                    {previewResult.restoreCandidate.recoveredProjects.length > 1 ? (
+                      <div className="form-grid">
+                        <label className="field field--full">
+                          <span>Recovered project to review</span>
+                          <select
+                            value={previewResult.restoreCandidate.selectedRecoveredProjectId ?? ""}
+                            onChange={(event) => onSelectRecoveredProject(event.target.value)}
+                          >
+                            {previewResult.restoreCandidate.recoveredProjects.map((project) => (
+                              <option key={project.id} value={project.id}>
+                                {project.name} | {project.status} | version {project.version}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                    ) : null}
+
+                    <p className="muted">{previewResult.restoreCandidate.restoreSummary}</p>
+
+                    {previewResult.restoreCandidate.restoreWarnings.length > 0 ? (
+                      <ul className="stacked-list">
+                        {previewResult.restoreCandidate.restoreWarnings.map((warning) => (
+                          <li key={warning} className="stacked-list__item">
+                            {warning}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+
+                    {previewResult.restoreCandidate.compare.identical ? (
                       <p className="muted">
-                        The recovered candidate matches the current active blueprint for the compared fields and entity
-                        collections.
+                        The selected recovered project matches the current active blueprint for the compared fields and
+                        entity collections.
                       </p>
                     ) : (
                       <>
-                        {previewResult.compare.projectChanges.length > 0 ? (
+                        {previewResult.restoreCandidate.compare.projectChanges.length > 0 ? (
                           <div className="compare-section">
                             <h3>Project changes</h3>
                             <ul className="stacked-list">
-                              {previewResult.compare.projectChanges.map((change) => (
+                              {previewResult.restoreCandidate.compare.projectChanges.map((change) => (
                                 <li key={change.field} className="stacked-list__item">
                                   <strong>{change.field}</strong>
                                   <p className="muted">
@@ -212,11 +253,11 @@ export const QuarantineInspectorPanel = ({
                           </div>
                         ) : null}
 
-                        {previewResult.compare.intentChanges.length > 0 ? (
+                        {previewResult.restoreCandidate.compare.intentChanges.length > 0 ? (
                           <div className="compare-section">
                             <h3>Intent changes</h3>
                             <ul className="stacked-list">
-                              {previewResult.compare.intentChanges.map((change) => (
+                              {previewResult.restoreCandidate.compare.intentChanges.map((change) => (
                                 <li key={change.field} className="stacked-list__item">
                                   <strong>{change.field}</strong>
                                   <p className="muted">
@@ -229,11 +270,28 @@ export const QuarantineInspectorPanel = ({
                           </div>
                         ) : null}
 
-                        {previewResult.compare.mvpScopeChanges.length > 0 ? (
+                        {previewResult.restoreCandidate.compare.decisionLogicChanges.length > 0 ? (
+                          <div className="compare-section">
+                            <h3>Decision logic changes</h3>
+                            <ul className="stacked-list">
+                              {previewResult.restoreCandidate.compare.decisionLogicChanges.map((change) => (
+                                <li key={change.field} className="stacked-list__item">
+                                  <strong>{change.field}</strong>
+                                  <p className="muted">
+                                    current: {formatValue(change.currentValue)} | candidate:{" "}
+                                    {formatValue(change.candidateValue)}
+                                  </p>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+
+                        {previewResult.restoreCandidate.compare.mvpScopeChanges.length > 0 ? (
                           <div className="compare-section">
                             <h3>MVP scope changes</h3>
                             <ul className="stacked-list">
-                              {previewResult.compare.mvpScopeChanges.map((change) => (
+                              {previewResult.restoreCandidate.compare.mvpScopeChanges.map((change) => (
                                 <li key={change.field} className="stacked-list__item">
                                   <strong>{change.field}</strong>
                                   <p className="muted">
@@ -246,11 +304,11 @@ export const QuarantineInspectorPanel = ({
                           </div>
                         ) : null}
 
-                        {previewResult.compare.expansionScopeChanges.length > 0 ? (
+                        {previewResult.restoreCandidate.compare.expansionScopeChanges.length > 0 ? (
                           <div className="compare-section">
                             <h3>Expansion scope changes</h3>
                             <ul className="stacked-list">
-                              {previewResult.compare.expansionScopeChanges.map((change) => (
+                              {previewResult.restoreCandidate.compare.expansionScopeChanges.map((change) => (
                                 <li key={change.field} className="stacked-list__item">
                                   <strong>{change.field}</strong>
                                   <p className="muted">
@@ -263,7 +321,7 @@ export const QuarantineInspectorPanel = ({
                           </div>
                         ) : null}
 
-                        {previewResult.compare.collections
+                        {previewResult.restoreCandidate.compare.collections
                           .filter((collection) => collection.hasChanges)
                           .map((collection) => (
                             <div key={collection.key} className="compare-section">
@@ -317,6 +375,22 @@ export const QuarantineInspectorPanel = ({
                         <pre className="json-viewer">{formatPayload(previewResult.candidateDocument)}</pre>
                       </label>
                     ) : null}
+
+                    <label className="field field--checkbox">
+                      <input
+                        type="checkbox"
+                        checked={restoreConfirmationChecked}
+                        onChange={(event) => onRestoreConfirmationChange(event.target.checked)}
+                        disabled={!previewResult.restoreCandidate.restoreReady}
+                      />
+                      <span>
+                        I confirm that{" "}
+                        <strong>
+                          {previewResult.restoreCandidate.selectedRecoveredProjectName ?? "the selected project"}
+                        </strong>{" "}
+                        is the recovered project to restore into active storage.
+                      </span>
+                    </label>
                   </>
                 ) : (
                   <div className="status-banner status-banner--error">
@@ -341,8 +415,16 @@ export const QuarantineInspectorPanel = ({
               </p>
 
               <div className="button-row">
-                <button type="button" onClick={onRecover}>
-                  Retry recovery
+                <button
+                  type="button"
+                  onClick={onRestore}
+                  disabled={
+                    !previewResult?.success ||
+                    !previewResult.restoreCandidate.restoreReady ||
+                    !restoreConfirmationChecked
+                  }
+                >
+                  Restore selected recovered project
                 </button>
                 <button type="button" className="button-secondary" onClick={() => onClear()}>
                   Clear all quarantine

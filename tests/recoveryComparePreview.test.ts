@@ -136,9 +136,60 @@ describe("recovery preview compare", () => {
     if (!result.success) {
       throw new Error("Expected preview to succeed.");
     }
-    expect(result.compare.projectChanges.some((change) => change.field === "rawIdea")).toBe(true);
+    expect(
+      result.restoreCandidate.compare.projectChanges.some((change) => change.field === "rawIdea"),
+    ).toBe(true);
     expect(repository.loadAll().projects).toEqual(beforeProjects);
     expect(repository.listQuarantinedPayloads()).toEqual(beforeQuarantine);
+  });
+
+  it("supports multiple recovered projects and updates compare when selection changes", () => {
+    const active = createSeedBlueprint();
+    const activeCandidate = structuredClone(active);
+    activeCandidate.project.rawIdea = "Recovered active project candidate.";
+
+    const alternate = createSeedBlueprint();
+    alternate.project.name = "Alternate recovered project";
+    alternate.project.rawIdea = "Recovered alternate project candidate.";
+
+    const quarantine = createBrokenQuarantine();
+    const storage = createTestStorage({
+      [projectsStorageKey]: JSON.stringify(createStoredProjectsDocument([active])),
+      [projectsQuarantineStorageKey]: JSON.stringify([quarantine]),
+    });
+
+    const { service } = setupService(storage);
+
+    const defaultPreview = service.previewQuarantinedPayload({
+      quarantineId: quarantine.id,
+      repairedJson: JSON.stringify(createStoredProjectsDocument([alternate, activeCandidate])),
+      activeBlueprint: active,
+    });
+
+    expect(defaultPreview.success).toBe(true);
+    if (!defaultPreview.success) {
+      throw new Error("Expected preview to succeed.");
+    }
+    expect(defaultPreview.restoreCandidate.recoveredProjects).toHaveLength(2);
+    expect(defaultPreview.restoreCandidate.selectedRecoveredProjectId).toBe(active.project.id);
+    expect(defaultPreview.restoreCandidate.compare.candidateProjectId).toBe(active.project.id);
+
+    const selectedPreview = service.previewQuarantinedPayload({
+      quarantineId: quarantine.id,
+      repairedJson: JSON.stringify(createStoredProjectsDocument([alternate, activeCandidate])),
+      activeBlueprint: active,
+      selectedRecoveredProjectId: alternate.project.id,
+    });
+
+    expect(selectedPreview.success).toBe(true);
+    if (!selectedPreview.success) {
+      throw new Error("Expected preview selection to succeed.");
+    }
+    expect(selectedPreview.restoreCandidate.selectedRecoveredProjectId).toBe(alternate.project.id);
+    expect(selectedPreview.restoreCandidate.compare.candidateProjectId).toBe(alternate.project.id);
+    expect(selectedPreview.restoreCandidate.compare.projectChanges.some((change) => change.field === "name")).toBe(
+      true,
+    );
   });
 
   it("returns structured preview failure without mutating active state or quarantine", () => {

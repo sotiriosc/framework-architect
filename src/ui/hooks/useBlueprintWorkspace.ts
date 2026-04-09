@@ -6,6 +6,7 @@ import {
 } from "@/application/services/blueprintService";
 import type { ProjectBlueprint } from "@/domain/models";
 import { LocalProjectRepository } from "@/persistence/localProjectRepository";
+import type { BlueprintRevision } from "@/persistence/revisionTypes";
 import type { QuarantinedPayload, RepositoryLoadReport } from "@/persistence/types";
 import type { CreateProjectDraft } from "@/ui/components/ProjectForm";
 
@@ -32,10 +33,14 @@ type WorkspaceState = {
   draftBlueprint: ProjectBlueprint | null;
   createDraft: CreateProjectDraft;
   loadReport: RepositoryLoadReport | null;
+  projectRevisions: BlueprintRevision[];
+  selectedRevisionId: string | null;
+  showRevisionSnapshotJson: boolean;
   quarantinedPayloads: QuarantinedPayload[];
   selectedQuarantineId: string | null;
   recoveryDraft: string;
   quarantinePreview: QuarantinePreviewResult | null;
+  restoreConfirmationChecked: boolean;
   showPreviewJson: boolean;
   quarantineFeedback: QuarantineFeedback | null;
   error: string | null;
@@ -47,6 +52,7 @@ const initializeWorkspace = (): WorkspaceState => {
     (selectedProjectId ? projects.find((project) => project.project.id === selectedProjectId) : null) ??
     projects[0] ??
     null;
+  const projectRevisions = blueprintService.listProjectRevisions(selectedProject?.project.id ?? null);
   const selectedQuarantine = quarantinedPayloads[0] ?? null;
 
   return {
@@ -55,10 +61,14 @@ const initializeWorkspace = (): WorkspaceState => {
     draftBlueprint: selectedProject ? structuredClone(selectedProject) : null,
     createDraft: defaultCreateDraft,
     loadReport,
+    projectRevisions,
+    selectedRevisionId: projectRevisions[0]?.id ?? null,
+    showRevisionSnapshotJson: false,
     quarantinedPayloads,
     selectedQuarantineId: selectedQuarantine?.id ?? null,
     recoveryDraft: selectedQuarantine ? formatJson(selectedQuarantine.rawPayload) : "",
     quarantinePreview: null,
+    restoreConfirmationChecked: false,
     showPreviewJson: false,
     quarantineFeedback: null,
     error: null,
@@ -92,6 +102,13 @@ export const useBlueprintWorkspace = () => {
     }
 
     setState((current) => {
+      const projectRevisions = blueprintService.listProjectRevisions(resolvedSelectedProjectId);
+      const selectedRevisionId =
+        current.selectedProjectId === resolvedSelectedProjectId &&
+        current.selectedRevisionId &&
+        projectRevisions.some((revision) => revision.id === current.selectedRevisionId)
+          ? current.selectedRevisionId
+          : projectRevisions[0]?.id ?? null;
       const quarantinedPayloads = blueprintService.listQuarantinedPayloads();
       const selectedQuarantineId =
         current.selectedQuarantineId &&
@@ -113,10 +130,14 @@ export const useBlueprintWorkspace = () => {
         selectedProjectId: resolvedSelectedProjectId,
         draftBlueprint: selectedProject ? structuredClone(selectedProject) : null,
         loadReport: loaded.report,
+        projectRevisions,
+        selectedRevisionId,
+        showRevisionSnapshotJson: false,
         quarantinedPayloads,
         selectedQuarantineId,
         recoveryDraft,
         quarantinePreview: null,
+        restoreConfirmationChecked: false,
         showPreviewJson: false,
         error: null,
       };
@@ -157,13 +178,33 @@ export const useBlueprintWorkspace = () => {
 
   const selectProject = (projectId: string | null) => {
     const selected = blueprintService.selectProject(projectId);
+    const projectRevisions = blueprintService.listProjectRevisions(selected?.project.id ?? null);
     setState((current) => ({
       ...current,
       selectedProjectId: selected?.project.id ?? null,
       draftBlueprint: selected ? structuredClone(selected) : null,
+      projectRevisions,
+      selectedRevisionId: projectRevisions[0]?.id ?? null,
+      showRevisionSnapshotJson: false,
       quarantinePreview: null,
+      restoreConfirmationChecked: false,
       showPreviewJson: false,
       error: null,
+    }));
+  };
+
+  const selectRevision = (revisionId: string | null) => {
+    setState((current) => ({
+      ...current,
+      selectedRevisionId: revisionId,
+      showRevisionSnapshotJson: false,
+    }));
+  };
+
+  const toggleRevisionSnapshotJson = () => {
+    setState((current) => ({
+      ...current,
+      showRevisionSnapshotJson: !current.showRevisionSnapshotJson,
     }));
   };
 
@@ -181,6 +222,7 @@ export const useBlueprintWorkspace = () => {
       selectedQuarantineId: selected?.id ?? null,
       recoveryDraft: selected ? formatJson(selected.rawPayload) : "",
       quarantinePreview: null,
+      restoreConfirmationChecked: false,
       showPreviewJson: false,
       quarantineFeedback: null,
       error: null,
@@ -192,6 +234,7 @@ export const useBlueprintWorkspace = () => {
       ...current,
       recoveryDraft,
       quarantinePreview: null,
+      restoreConfirmationChecked: false,
       showPreviewJson: false,
       quarantineFeedback: null,
       error: null,
@@ -205,6 +248,7 @@ export const useBlueprintWorkspace = () => {
         ...current,
         recoveryDraft,
         quarantinePreview: null,
+        restoreConfirmationChecked: false,
         showPreviewJson: false,
         quarantineFeedback: null,
         error: null,
@@ -254,14 +298,51 @@ export const useBlueprintWorkspace = () => {
       quarantineId: state.selectedQuarantineId,
       repairedJson: state.recoveryDraft,
       activeBlueprint,
+      selectedRecoveredProjectId: state.quarantinePreview?.success
+        ? state.quarantinePreview.restoreCandidate.selectedRecoveredProjectId
+        : null,
     });
 
     setState((current) => ({
       ...current,
       quarantinePreview: result,
+      restoreConfirmationChecked: false,
       showPreviewJson: false,
       quarantineFeedback: null,
       error: null,
+    }));
+  };
+
+  const selectRecoveredProjectForPreview = (recoveredProjectId: string) => {
+    if (!state.selectedQuarantineId) {
+      return;
+    }
+
+    const activeBlueprint =
+      (state.selectedProjectId
+        ? state.projects.find((project) => project.project.id === state.selectedProjectId)
+        : null) ?? null;
+    const result = blueprintService.previewQuarantinedPayload({
+      quarantineId: state.selectedQuarantineId,
+      repairedJson: state.recoveryDraft,
+      activeBlueprint,
+      selectedRecoveredProjectId: recoveredProjectId,
+    });
+
+    setState((current) => ({
+      ...current,
+      quarantinePreview: result,
+      restoreConfirmationChecked: false,
+      showPreviewJson: false,
+      quarantineFeedback: null,
+      error: null,
+    }));
+  };
+
+  const setRestoreConfirmationChecked = (checked: boolean) => {
+    setState((current) => ({
+      ...current,
+      restoreConfirmationChecked: checked,
     }));
   };
 
@@ -272,21 +353,10 @@ export const useBlueprintWorkspace = () => {
     }));
   };
 
-  const recoverSelectedQuarantine = () => {
-    if (!state.selectedQuarantineId) {
-      setState((current) => ({
-        ...current,
-        quarantineFeedback: {
-          tone: "error",
-          message: "Select a quarantine entry before attempting recovery.",
-        },
-      }));
-      return;
-    }
-
-    const result = blueprintService.recoverQuarantinedPayload({
-      quarantineId: state.selectedQuarantineId,
-      repairedJson: state.recoveryDraft,
+  const restorePreviewCandidate = () => {
+    const result = blueprintService.restorePreviewCandidate({
+      preview: state.quarantinePreview,
+      confirm: state.restoreConfirmationChecked,
     });
 
     if (!result.success) {
@@ -294,10 +364,8 @@ export const useBlueprintWorkspace = () => {
         ...current,
         quarantineFeedback: {
           tone: "error",
-          message: `${result.reason}${result.migrationSteps[0] ? ` ${result.migrationSteps[0]}` : ""}`,
+          message: result.reason,
         },
-        quarantinePreview: null,
-        showPreviewJson: false,
       }));
       return;
     }
@@ -310,6 +378,7 @@ export const useBlueprintWorkspace = () => {
         message: result.message,
       },
       quarantinePreview: null,
+      restoreConfirmationChecked: false,
       showPreviewJson: false,
       error: null,
     }));
@@ -327,6 +396,7 @@ export const useBlueprintWorkspace = () => {
           : "All quarantine entries cleared.",
       },
       quarantinePreview: null,
+      restoreConfirmationChecked: false,
       showPreviewJson: false,
       error: null,
     }));
@@ -396,6 +466,7 @@ export const useBlueprintWorkspace = () => {
     ...state,
     createProject,
     selectProject,
+    selectRevision,
     selectQuarantinedPayload,
     updateCreateDraft,
     updateDraftBlueprint,
@@ -403,8 +474,11 @@ export const useBlueprintWorkspace = () => {
     importRecoveryDraftFile,
     exportQuarantinedPayload,
     previewSelectedQuarantine,
+    selectRecoveredProjectForPreview,
+    setRestoreConfirmationChecked,
+    toggleRevisionSnapshotJson,
     togglePreviewJson,
-    recoverSelectedQuarantine,
+    restorePreviewCandidate,
     clearQuarantinedPayload,
     saveCurrentProject,
     reextractIntent,

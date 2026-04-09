@@ -1,4 +1,5 @@
 import type { ProjectBlueprint } from "@/domain/models";
+import type { BlueprintRevision } from "@/persistence/revisionTypes";
 import type {
   QuarantinedPayload,
   RepositoryLoadReport,
@@ -21,6 +22,10 @@ export interface ProjectRepository {
   saveAll(projects: ProjectBlueprint[]): ProjectBlueprint[];
   seed(projects: ProjectBlueprint[]): ProjectBlueprint[];
   getLastLoadReport(): RepositoryLoadReport | null;
+  appendProjectRevision(revision: BlueprintRevision): BlueprintRevision;
+  listProjectRevisions(projectId: string): BlueprintRevision[];
+  getProjectRevision(revisionId: string): BlueprintRevision | undefined;
+  getLatestProjectRevision(projectId: string): BlueprintRevision | undefined;
   listQuarantinedPayloads(): QuarantinedPayload[];
   getQuarantinedPayload(quarantineId: string): QuarantinedPayload | undefined;
   clearQuarantinedPayloads(quarantineId?: string): void;
