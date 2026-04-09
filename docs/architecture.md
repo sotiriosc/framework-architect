@@ -1,39 +1,46 @@
 # Architecture Notes
 
-## Product Shape
-Framework Architect takes a raw idea and turns it into full functional architecture before implementation begins.
+## V1 Direction
+Framework Architect is intentionally local-first and architecture-first. The app captures a project idea as a governed blueprint and keeps governance concepts explicit instead of burying them in helper code.
 
-## Governed Output
-Each run should produce a governed structure containing:
-- intended outcome
+## Top-Level Blueprint Contract
+The blueprint document contains:
+- project
+- intent
+- outcomes
+- actors
+- constraints
 - domains
-- required functions
+- functions
 - components
+- flows
 - dependencies
 - rules
 - invariants
+- decision_logic
+- failure_modes
 - guardrails
 - phases
-- MVP scope
-- expansion scope
+- mvp_scope
+- expansion_scope
+- validation
+- memory
 
-## V1 Priorities
-1. Intake a rough idea.
-2. Produce structured architecture JSON.
-3. Save each result as a versioned artifact.
-4. Track memory and revision history in SQLite.
-5. Surface critique, weak points, and missing constraints before expansion.
+## Memory Layers
+V1 includes three persistent memory layers:
+- Project memory: raw idea, intended outcome, philosophy, constraints, invariant priorities
+- Structural memory: domains, functions, components, dependencies, rules, guardrails, validation snapshots
+- Decision memory: change reasons, rejected options, invariant conflicts, scope decisions
 
-## Deliberate Non-Goals
-- No vector database in v1.
-- No multi-model routing in v1.
-- No heavy frontend framework until the backend contract is stable.
-- No autonomous orchestration layer before the structured output format is reliable.
+## Validation Rules
+The validation engine enforces:
+- every function maps to at least one outcome
+- every component maps to at least one function
+- every dependency references valid entities
+- every rule has a scope
+- every invariant is global or clearly scoped
+- every MVP item is distinct from expansion scope
+- build-ready status is blocked by critical validation failures
 
-## Planned Modules
-- `api`: FastAPI routes and request/response boundaries
-- `core`: architecture assembly and critique orchestration
-- `db`: SQLite connection and persistence concerns
-- `llm`: single-provider, structured-output integration
-- `memory`: artifact history, refinement state, and retrieval
-- `schemas`: Pydantic models for inputs, outputs, and stored records
+## Persistence Strategy
+The app uses a repository interface with a localStorage adapter. That keeps persistence replaceable so a future database layer can be added without rewriting domain, schema, or validation code.

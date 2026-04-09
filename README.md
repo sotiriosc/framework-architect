@@ -1,10 +1,9 @@
 # Framework Architect
 
-Framework Architect does not generate code first.
-It generates the full functional architecture required to fulfill a project idea before implementation begins.
+Framework Architect is a TypeScript web app that turns a raw project idea into a governed project blueprint before implementation begins.
 
 ## Core Purpose
-The app takes a raw idea and produces a governed structure that a builder can actually build from:
+The app accepts a rough idea, extracts the intended outcome, and stores a structured project blueprint with explicit governance:
 - intended outcome
 - domains
 - required functions
@@ -17,49 +16,33 @@ The app takes a raw idea and produces a governed structure that a builder can ac
 - MVP scope
 - expansion scope
 
-## Core Principle
-Do not let the model be the framework.
-Make the model produce the framework.
+## V1 Includes
+- Strong TypeScript domain types and Zod schemas
+- Local-first persistence for projects, blueprint data, and memory
+- Validation rules for structural governance checks
+- Minimal UI for project creation, intent/outcome editing, blueprint viewing, memory viewing, and validation review
+- A seed example blueprint for inspection and iteration
 
-## V1 Stack
-- Backend: Python + FastAPI
-- Schemas: Pydantic
-- Storage: SQLite first
-- Memory: plain relational tables first, vector search later
-- LLM layer: one model, structured JSON output only
-- Interface: simple web UI or CLI after the architecture engine is stable
-
-## Repo Layout
-```text
-framework-architect/
-├── docs/
-├── src/framework_architect/
-│   ├── api/
-│   ├── core/
-│   ├── db/
-│   ├── llm/
-│   ├── memory/
-│   └── schemas/
-├── tests/
-├── .env.example
-├── Makefile
-└── pyproject.toml
-```
+## Architecture Layers
+- `schema`: Zod contracts for every entity and the top-level blueprint
+- `domain`: shared types, defaults, and entity metadata
+- `application`: intake, validation, and persistence workflows
+- `persistence`: repository interface and localStorage adapter
+- `ui`: minimal React components and workspace flow
 
 ## Local Setup
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
+npm install
+npm run dev
 ```
 
-## Initial Commands
+## Verification
 ```bash
-make install
-make dev
-make test
+npm run build
+npm run test
 ```
 
-## Status
-The project is scaffolded and dependencies are installed. Implementation logic is still intentionally deferred while the architecture contract is being defined.
+## Notes
+- The app is deliberately local-first and transparent.
+- Validation logic lives outside the UI.
+- AI orchestration and code generation are intentionally out of scope for this version.

@@ -1,0 +1,268 @@
+:root {
+  color: #17212b;
+  background: #f4f2ea;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: linear-gradient(180deg, #f6f0e2 0%, #f3f5f6 100%);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid #17212b;
+  background: #f7b267;
+  color: #17212b;
+  padding: 0.65rem 1rem;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  border: 1px solid #b8c2cc;
+  background: #fffdf9;
+  padding: 0.65rem 0.75rem;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.app-shell {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
+.header-controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: end;
+  flex-wrap: wrap;
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(340px, 0.9fr);
+  gap: 1rem;
+}
+
+.workspace-grid__editor,
+.workspace-grid__inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.section-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #d7d6ce;
+  padding: 1rem;
+}
+
+.section-card__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+  margin-bottom: 1rem;
+}
+
+.section-card__header h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+}
+
+.section-card__header p,
+.muted {
+  color: #5f6972;
+}
+
+.section-card__header p {
+  margin: 0;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.field--full,
+.field--wide {
+  grid-column: 1 / -1;
+}
+
+.field--checkbox {
+  flex-direction: row;
+  align-items: center;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.collection-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.collection-item {
+  border: 1px solid #e3e0d7;
+  background: #fffdf9;
+  padding: 0.75rem;
+}
+
+.collection-item summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  margin-bottom: 0.75rem;
+}
+
+.danger-link {
+  background: transparent;
+  border: none;
+  color: #b33a3a;
+  padding: 0;
+}
+
+.stacked-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.stacked-list__item {
+  border: 1px solid #e3e0d7;
+  background: #fffdf9;
+  padding: 0.75rem;
+}
+
+.stacked-list__item--fail {
+  border-color: #d65757;
+}
+
+.stacked-list__item--warning {
+  border-color: #d7a24f;
+}
+
+.stacked-list__item--pass {
+  border-color: #6ea877;
+}
+
+.tag-row {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.tag-row span,
+.eyebrow {
+  display: inline-flex;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tag-row span {
+  background: #e7edf1;
+  padding: 0.2rem 0.45rem;
+}
+
+.validation-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.validation-summary strong {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.memory-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.json-viewer {
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #14202a;
+  color: #f7f4ef;
+  padding: 1rem;
+  margin: 0;
+}
+
+.status-banner {
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.status-banner--error {
+  background: #f7d7d7;
+  color: #702020;
+}
+
+@media (max-width: 1100px) {
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .app-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 720px) {
+  .form-grid,
+  .validation-summary {
+    grid-template-columns: 1fr;
+  }
+}
