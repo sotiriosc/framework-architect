@@ -1,5 +1,5 @@
-from framework_forge import __version__
-from framework_forge.api.app import app
+from framework_architect import __version__
+from framework_architect.api.app import app
 
 
 def test_package_version_present() -> None:
@@ -7,4 +7,4 @@ def test_package_version_present() -> None:
 
 
 def test_fastapi_app_title() -> None:
-    assert app.title == "Framework Forge"
+    assert app.title == "Framework Architect"

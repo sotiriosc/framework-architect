@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "framework-forge"
+name = "framework-architect"
 version = "0.1.0"
-description = "Structured framework generation engine with memory, critique, and export."
+description = "Functional architecture generation engine for turning project ideas into governed build plans."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

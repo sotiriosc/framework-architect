@@ -1,17 +1,21 @@
-# Framework Forge
+# Framework Architect
 
-Turns messy ideas into a versioned framework package with memory, critique, and export.
+Framework Architect does not generate code first.
+It generates the full functional architecture required to fulfill a project idea before implementation begins.
 
-## Product Goal
-Take a rough idea and turn it into a structured, reusable framework package with:
-- the real objective
-- hidden assumptions
-- key constraints
-- framework structure
-- execution plan
-- weak points
-- best next prompts
-- saved memory for future refinement
+## Core Purpose
+The app takes a raw idea and produces a governed structure that a builder can actually build from:
+- intended outcome
+- domains
+- required functions
+- components
+- dependencies
+- rules
+- invariants
+- guardrails
+- phases
+- MVP scope
+- expansion scope
 
 ## Core Principle
 Do not let the model be the framework.
@@ -23,13 +27,13 @@ Make the model produce the framework.
 - Storage: SQLite first
 - Memory: plain relational tables first, vector search later
 - LLM layer: one model, structured JSON output only
-- Interface: simple web UI or CLI after the thinking engine is stable
+- Interface: simple web UI or CLI after the architecture engine is stable
 
 ## Repo Layout
 ```text
-framework-forge/
+framework-architect/
 ├── docs/
-├── src/framework_forge/
+├── src/framework_architect/
 │   ├── api/
 │   ├── core/
 │   ├── db/
@@ -58,4 +62,4 @@ make test
 ```
 
 ## Status
-The project is scaffolded and dependencies are ready to install. Product logic, API routes, memory workflows, and UI are intentionally deferred until the system design is locked down.
+The project is scaffolded and dependencies are installed. Implementation logic is still intentionally deferred while the architecture contract is being defined.
