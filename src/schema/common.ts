@@ -18,6 +18,7 @@ export const entityScopeValues = [
 ] as const;
 export const validationStatusValues = ["pass", "warning", "fail"] as const;
 export const validationSeverityValues = ["critical", "high", "medium", "low"] as const;
+export const reviewSeverityValues = ["blocker", "warning", "notice"] as const;
 export const memoryTypeValues = ["project", "structural", "decision"] as const;
 export const decisionStatusValues = ["accepted", "rejected", "proposed"] as const;
 export const decisionScopeValues = ["mvp", "expansion", "architecture", "governance"] as const;
@@ -49,6 +50,7 @@ export const dependencyKindSchema = z.enum(dependencyKindValues);
 export const entityScopeSchema = z.enum(entityScopeValues);
 export const validationStatusSchema = z.enum(validationStatusValues);
 export const validationSeveritySchema = z.enum(validationSeverityValues);
+export const reviewSeveritySchema = z.enum(reviewSeverityValues);
 export const memoryTypeSchema = z.enum(memoryTypeValues);
 export const decisionStatusSchema = z.enum(decisionStatusValues);
 export const decisionScopeSchema = z.enum(decisionScopeValues);

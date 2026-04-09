@@ -31,6 +31,41 @@ const parseCsv = (value: string): string[] =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+const getFieldValue = (value: Record<string, unknown>, key: string): unknown =>
+  key.split(".").reduce<unknown>((current, segment) => {
+    if (!current || typeof current !== "object" || Array.isArray(current)) {
+      return undefined;
+    }
+
+    return (current as Record<string, unknown>)[segment];
+  }, value);
+
+const setFieldValue = (
+  value: Record<string, unknown>,
+  key: string,
+  nextValue: unknown,
+): Record<string, unknown> => {
+  const path = key.split(".");
+  const nextRecord = { ...value };
+  let cursor: Record<string, unknown> = nextRecord;
+
+  path.forEach((segment, index) => {
+    if (index === path.length - 1) {
+      cursor[segment] = nextValue;
+      return;
+    }
+
+    const current = cursor[segment];
+    cursor[segment] =
+      current && typeof current === "object" && !Array.isArray(current)
+        ? { ...(current as Record<string, unknown>) }
+        : {};
+    cursor = cursor[segment] as Record<string, unknown>;
+  });
+
+  return nextRecord;
+};
+
 export const CollectionEditor = <T extends Record<string, unknown>>({
   title,
   description,
@@ -47,10 +82,7 @@ export const CollectionEditor = <T extends Record<string, unknown>>({
         return item;
       }
 
-      const nextItem = {
-        ...item,
-        [key]: value,
-      } as T & { updatedAt?: string };
+      const nextItem = setFieldValue(item, key, value) as T & { updatedAt?: string };
 
       if ("updatedAt" in nextItem) {
         nextItem.updatedAt = new Date().toISOString();
@@ -99,7 +131,7 @@ export const CollectionEditor = <T extends Record<string, unknown>>({
             {renderMeta ? <div className="item-meta">{renderMeta(item)}</div> : null}
             <div className="form-grid">
               {fields.map((field) => {
-                const fieldValue = item[field.key];
+                const fieldValue = getFieldValue(item, field.key);
                 const inputId = `${title}-${String(item.id)}-${field.key}`;
 
                 if (field.kind === "textarea") {

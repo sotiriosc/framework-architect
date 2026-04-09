@@ -4,6 +4,7 @@ import { compareBlueprints } from "@/application/review/compareBlueprints";
 import { BlueprintService } from "@/application/services/blueprintService";
 import { createComponent } from "@/domain/defaults";
 import { LocalProjectRepository } from "@/persistence/localProjectRepository";
+import { ProjectBlueprintSchema } from "@/schema";
 
 type TestStorage = {
   getItem(key: string): string | null;
@@ -205,6 +206,154 @@ describe("change review", () => {
     expect(review.affectedInvariants.map((item) => item.name)).toContain(active.invariants[0]?.name);
     expect(review.affectedRules.map((item) => item.name)).toContain(active.rules[1]?.name);
     expect(review.warnings.some((issue) => issue.category === "invariant")).toBe(true);
+    expect(review.warnings.some((issue) => issue.category === "rule")).toBe(true);
+  });
+
+  it("uses explicit invariant policy metadata to downgrade save review to a notice", () => {
+    const { service } = setupService(createTestStorage());
+    const active = service.bootstrap().projects[0];
+
+    expect(active).toBeDefined();
+    if (!active) {
+      throw new Error("Expected a seed blueprint.");
+    }
+
+    const edited = structuredClone(active);
+    edited.invariants[0].description = "Notice-level invariant wording update.";
+    edited.invariants[0].policy.reviewSeverity = "notice";
+    edited.invariants[0].policy.requiresConfirmation = false;
+    edited.invariants[0].policy.blocksBuildReady = false;
+    edited.invariants[0].policy.reviewMessage = "This invariant touch should remain informational.";
+
+    const review = service.reviewStableSave({
+      candidate: edited,
+      reason: "Adjusted an invariant with notice-level policy.",
+    });
+
+    expect(review.status).toBe("ready");
+    if (review.status !== "ready") {
+      throw new Error("Expected a ready review.");
+    }
+
+    expect(review.level).toBe("clean");
+    expect(review.confirmationRequired).toBe(false);
+    expect(review.warnings.some((issue) => issue.category === "invariant")).toBe(false);
+    const notice = review.notices.find((issue) => issue.category === "invariant");
+    expect(notice?.source).toBe("policy");
+    expect(notice?.policySource?.entityType).toBe("invariant");
+    expect(notice?.policySource?.declaredSeverity).toBe("notice");
+  });
+
+  it("promotes notice-level rule policy to a warning when confirmation is explicitly required", () => {
+    const { service } = setupService(createTestStorage());
+    const active = service.bootstrap().projects[0];
+
+    expect(active).toBeDefined();
+    if (!active) {
+      throw new Error("Expected a seed blueprint.");
+    }
+
+    const edited = structuredClone(active);
+    edited.rules[0].enforcement = "Explicit policy-driven confirmation remains required.";
+    edited.rules[0].policy.reviewSeverity = "notice";
+    edited.rules[0].policy.requiresConfirmation = true;
+    edited.rules[0].policy.overrideAllowed = true;
+    edited.rules[0].policy.reviewMessage = "This rule still requires human confirmation.";
+
+    const review = service.reviewStableSave({
+      candidate: edited,
+      reason: "Adjusted a rule with notice severity but explicit confirmation.",
+      source: "manualCheckpoint",
+    });
+
+    expect(review.status).toBe("ready");
+    if (review.status !== "ready") {
+      throw new Error("Expected a ready review.");
+    }
+
+    expect(review.level).toBe("warning");
+    expect(review.confirmationRequired).toBe(true);
+    const warning = review.warnings.find((issue) => issue.category === "rule");
+    expect(warning?.source).toBe("policy");
+    expect(warning?.policySource?.declaredSeverity).toBe("notice");
+    expect(warning?.policySource?.appliedSeverity).toBe("warning");
+    expect(warning?.overrideAllowed).toBe(true);
+  });
+
+  it("uses build-ready policy metadata to block promotion when a changed rule is marked as a blocker", () => {
+    const { service } = setupService(createTestStorage());
+    const active = service.bootstrap().projects[0];
+
+    expect(active).toBeDefined();
+    if (!active) {
+      throw new Error("Expected a seed blueprint.");
+    }
+
+    const edited = structuredClone(active);
+    edited.project.status = "build-ready";
+    edited.rules[1].description = "Changed build-ready gate wording.";
+    edited.rules[1].policy.reviewSeverity = "notice";
+    edited.rules[1].policy.blocksBuildReady = true;
+    edited.rules[1].policy.affectsBuildReady = true;
+    edited.rules[1].policy.requiresConfirmation = true;
+
+    const review = service.reviewStableSave({
+      candidate: edited,
+      reason: "Adjusted a build-ready gate rule during promotion.",
+    });
+
+    expect(review.status).toBe("ready");
+    if (review.status !== "ready") {
+      throw new Error("Expected a ready review.");
+    }
+
+    expect(review.level).toBe("blocked");
+    expect(review.buildReadyAllowed).toBe(false);
+    expect(review.effectiveProjectStatus).toBe("validated");
+    const blocker = review.blockers.find((issue) => issue.category === "rule");
+    expect(blocker?.source).toBe("policy");
+    expect(blocker?.policySource?.appliedSeverity).toBe("blocker");
+  });
+
+  it("keeps older governance entities without explicit policy metadata backward compatible", () => {
+    const { service } = setupService(createTestStorage());
+    const active = service.bootstrap().projects[0];
+
+    expect(active).toBeDefined();
+    if (!active) {
+      throw new Error("Expected a seed blueprint.");
+    }
+
+    const legacyPayload = JSON.parse(JSON.stringify(active)) as Record<string, unknown>;
+    const firstRule = (legacyPayload.rules as Array<Record<string, unknown>>)[0];
+    const firstInvariant = (legacyPayload.invariants as Array<Record<string, unknown>>)[0];
+
+    delete firstRule.policy;
+    delete firstInvariant.policy;
+    firstInvariant.blocksBuildReady = true;
+    firstInvariant.overrideAllowed = false;
+    firstInvariant.violationMessage = "Legacy invariant message";
+
+    const parsed = ProjectBlueprintSchema.parse(legacyPayload);
+
+    expect(parsed.rules[0]?.policy.requiresConfirmation).toBe(true);
+    expect(parsed.rules[0]?.policy.reviewSeverity).toBe("warning");
+    expect(parsed.invariants[0]?.policy.blocksBuildReady).toBe(true);
+    expect(parsed.invariants[0]?.policy.reviewMessage).toBe("Legacy invariant message");
+
+    const edited = structuredClone(parsed);
+    edited.rules[0].enforcement = "Legacy rule payload still participates in review.";
+
+    const review = service.reviewStableSave({
+      candidate: edited,
+      reason: "Legacy governance payload review.",
+    });
+
+    expect(review.status).toBe("ready");
+    if (review.status !== "ready") {
+      throw new Error("Expected a ready review.");
+    }
+
     expect(review.warnings.some((issue) => issue.category === "rule")).toBe(true);
   });
 

@@ -10,6 +10,7 @@ import type {
   FailureMode,
   Flow,
   Guardrail,
+  GovernancePolicy,
   Intent,
   Invariant,
   MemoryEntry,
@@ -151,6 +152,20 @@ export const createDependency = (): Dependency => ({
   ...timestamps(),
 });
 
+const createGovernancePolicy = (input?: Partial<GovernancePolicy>): GovernancePolicy => ({
+  reviewSeverity: "warning",
+  affectsStableSave: true,
+  affectsCheckpoint: true,
+  affectsBuildReady: true,
+  blocksBuildReady: false,
+  requiresConfirmation: true,
+  overrideAllowed: false,
+  reviewMessage: "",
+  recommendation: "",
+  rationale: "",
+  ...input,
+});
+
 export const createRule = (): Rule => ({
   id: createId("rule"),
   name: "New rule",
@@ -158,6 +173,9 @@ export const createRule = (): Rule => ({
   scope: "project",
   scopeEntityIds: [],
   enforcement: "",
+  policy: createGovernancePolicy({
+    recommendation: "Review the rule scope and enforcement before accepting this stable change.",
+  }),
   ...timestamps(),
 });
 
@@ -169,8 +187,11 @@ export const createInvariant = (): Invariant => ({
   scopeEntityIds: [],
   priority: "high",
   violationMessage: "",
-  blocksBuildReady: true,
-  overrideAllowed: false,
+  policy: createGovernancePolicy({
+    blocksBuildReady: true,
+    reviewMessage: "",
+    recommendation: "Review the affected scope before claiming the project is build-ready.",
+  }),
   ...timestamps(),
 });
 

@@ -12,6 +12,7 @@ import {
   FailureModeSchema,
   FlowSchema,
   GuardrailSchema,
+  GovernancePolicySchema,
   IntentSchema,
   InvariantSchema,
   MVPScopeSchema,
@@ -38,6 +39,7 @@ export type ProjectFunction = z.infer<typeof ProjectFunctionSchema>;
 export type Component = z.infer<typeof ComponentSchema>;
 export type Flow = z.infer<typeof FlowSchema>;
 export type Dependency = z.infer<typeof DependencySchema>;
+export type GovernancePolicy = z.infer<typeof GovernancePolicySchema>;
 export type Rule = z.infer<typeof RuleSchema>;
 export type Invariant = z.infer<typeof InvariantSchema>;
 export type Guardrail = z.infer<typeof GuardrailSchema>;

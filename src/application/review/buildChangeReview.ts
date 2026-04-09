@@ -1,7 +1,15 @@
 import { compareBlueprints } from "@/application/review/compareBlueprints";
 import type { BlueprintStructuralDiff, StructuralDiffCollectionKey } from "@/application/review/diffModel";
 import { validateBlueprint } from "@/application/validation/validateBlueprint";
-import type { Invariant, Project, ProjectBlueprint, Rule, ValidationCheck, ValidationState } from "@/domain/models";
+import type {
+  GovernancePolicy,
+  Invariant,
+  Project,
+  ProjectBlueprint,
+  Rule,
+  ValidationCheck,
+  ValidationState,
+} from "@/domain/models";
 import type { BlueprintRevision, RevisionSource } from "@/persistence/revisionTypes";
 
 export type StableSaveSource = Extract<RevisionSource, "editSave" | "manualCheckpoint">;
@@ -20,14 +28,31 @@ export type ChangeReviewBaseline = {
   detail: string;
 };
 
+export type GovernancePolicySource = {
+  entityType: "invariant" | "rule";
+  entityId: string;
+  entityName: string;
+  declaredSeverity: ChangeReviewIssueSeverity;
+  appliedSeverity: ChangeReviewIssueSeverity;
+  requiresConfirmation: boolean;
+  overrideAllowed: boolean;
+  reviewMessage: string;
+  recommendation: string;
+  rationale: string;
+};
+
 export type ChangeReviewIssue = {
   severity: ChangeReviewIssueSeverity;
   category: "invariant" | "rule" | "validation" | "status";
+  source: "policy" | "validation" | "status";
   code: string;
   title: string;
   reason: string;
   relatedEntityIds: string[];
   recommendation: string;
+  confirmationRequired: boolean;
+  overrideAllowed: boolean;
+  policySource?: GovernancePolicySource;
 };
 
 export type AffectedInvariant = {
@@ -38,8 +63,8 @@ export type AffectedInvariant = {
   presence: GovernanceImpactPresence;
   directChange: boolean;
   scopeTouched: boolean;
-  blocksBuildReady: boolean;
-  overrideAllowed: boolean;
+  policy: Invariant["policy"];
+  appliesToReviewTarget: boolean;
   relatedEntityIds: string[];
   triggers: string[];
 };
@@ -51,6 +76,8 @@ export type AffectedRule = {
   presence: GovernanceImpactPresence;
   directChange: boolean;
   scopeTouched: boolean;
+  policy: Rule["policy"];
+  appliesToReviewTarget: boolean;
   relatedEntityIds: string[];
   triggers: string[];
 };
@@ -104,6 +131,12 @@ type TouchedContext = {
   linkedInvariantIds: Set<string>;
 };
 
+type GovernanceIssueBuckets = {
+  blockers: ChangeReviewIssue[];
+  warnings: ChangeReviewIssue[];
+  notices: ChangeReviewIssue[];
+};
+
 const collectionScopeMap: Partial<Record<StructuralDiffCollectionKey, Invariant["scope"]>> = {
   actors: "actor",
   domains: "domain",
@@ -155,6 +188,7 @@ const makeIssueSignature = (issue: ChangeReviewIssue): string =>
   [
     issue.severity,
     issue.category,
+    issue.source,
     issue.code,
     issue.title,
     issue.reason,
@@ -293,11 +327,74 @@ const hasScopedEntityTouch = (
   return scopeEntityIds.some((entityId) => touchedIds.has(entityId));
 };
 
+const reviewTargetAffectsPolicy = (
+  policy: GovernancePolicy,
+  reviewTarget: ChangeReviewTarget,
+): boolean => {
+  switch (reviewTarget) {
+    case "manualCheckpoint":
+      return policy.affectsCheckpoint;
+    case "buildReadyTransition":
+      return policy.affectsBuildReady;
+    default:
+      return policy.affectsStableSave;
+  }
+};
+
+const applyGovernancePolicySeverity = (input: {
+  policy: GovernancePolicy;
+  reviewTarget: ChangeReviewTarget;
+  directChange: boolean;
+}): ChangeReviewIssueSeverity => {
+  if (input.reviewTarget === "buildReadyTransition" && input.policy.blocksBuildReady && input.directChange) {
+    return "blocker";
+  }
+
+  if (input.policy.reviewSeverity === "notice" && input.policy.requiresConfirmation) {
+    return "warning";
+  }
+
+  return input.policy.reviewSeverity;
+};
+
+const buildGovernanceReason = (
+  reviewMessage: string,
+  triggers: string[],
+  rationale: string,
+): string =>
+  [reviewMessage.trim(), triggers.join(" ").trim(), rationale.trim()]
+    .filter(Boolean)
+    .join(" ");
+
+const createEmptyBuckets = (): GovernanceIssueBuckets => ({
+  blockers: [],
+  warnings: [],
+  notices: [],
+});
+
+const pushIssueBySeverity = (
+  buckets: GovernanceIssueBuckets,
+  issue: ChangeReviewIssue,
+): void => {
+  if (issue.severity === "blocker") {
+    buckets.blockers.push(issue);
+    return;
+  }
+
+  if (issue.severity === "warning") {
+    buckets.warnings.push(issue);
+    return;
+  }
+
+  buckets.notices.push(issue);
+};
+
 const analyzeAffectedInvariants = (input: {
   baselineBlueprint: ProjectBlueprint | null;
   candidateBlueprint: ProjectBlueprint;
   structuralDiff: BlueprintStructuralDiff;
   touchedContext: TouchedContext;
+  reviewTarget: ChangeReviewTarget;
   buildReadyRequested: boolean;
 }): AffectedInvariant[] => {
   const presenceMap = buildGovernancePresenceMap("invariants", input.structuralDiff);
@@ -323,11 +420,11 @@ const analyzeAffectedInvariants = (input: {
       const triggers: string[] = [];
 
       if (presence === "added") {
-        triggers.push("Invariant was added in the proposed stable save.");
+        triggers.push("Invariant was added in the proposed stable change.");
       } else if (presence === "removed") {
-        triggers.push("Invariant was removed from the proposed stable save.");
+        triggers.push("Invariant was removed from the proposed stable change.");
       } else if (presence === "changed") {
-        triggers.push("Invariant definition changed in the proposed stable save.");
+        triggers.push("Invariant definition changed in the proposed stable change.");
       }
 
       if (scopeTouched) {
@@ -356,14 +453,9 @@ const analyzeAffectedInvariants = (input: {
         presence,
         directChange,
         scopeTouched,
-        blocksBuildReady: invariant.blocksBuildReady,
-        overrideAllowed: invariant.overrideAllowed,
-        relatedEntityIds: Array.from(
-          new Set([
-            invariant.id,
-            ...invariant.scopeEntityIds,
-          ]),
-        ),
+        policy: invariant.policy,
+        appliesToReviewTarget: reviewTargetAffectsPolicy(invariant.policy, input.reviewTarget),
+        relatedEntityIds: Array.from(new Set([invariant.id, ...invariant.scopeEntityIds])),
         triggers,
       } satisfies AffectedInvariant;
     })
@@ -376,6 +468,7 @@ const analyzeAffectedRules = (input: {
   candidateBlueprint: ProjectBlueprint;
   structuralDiff: BlueprintStructuralDiff;
   touchedContext: TouchedContext;
+  reviewTarget: ChangeReviewTarget;
   buildReadyRequested: boolean;
 }): AffectedRule[] => {
   const presenceMap = buildGovernancePresenceMap("rules", input.structuralDiff);
@@ -399,11 +492,11 @@ const analyzeAffectedRules = (input: {
       const triggers: string[] = [];
 
       if (presence === "added") {
-        triggers.push("Rule was added in the proposed stable save.");
+        triggers.push("Rule was added in the proposed stable change.");
       } else if (presence === "removed") {
-        triggers.push("Rule was removed from the proposed stable save.");
+        triggers.push("Rule was removed from the proposed stable change.");
       } else if (presence === "changed") {
-        triggers.push("Rule definition changed in the proposed stable save.");
+        triggers.push("Rule definition changed in the proposed stable change.");
       }
 
       if (scopeTouched) {
@@ -429,12 +522,9 @@ const analyzeAffectedRules = (input: {
         presence,
         directChange,
         scopeTouched,
-        relatedEntityIds: Array.from(
-          new Set([
-            rule.id,
-            ...rule.scopeEntityIds,
-          ]),
-        ),
+        policy: rule.policy,
+        appliesToReviewTarget: reviewTargetAffectsPolicy(rule.policy, input.reviewTarget),
+        relatedEntityIds: Array.from(new Set([rule.id, ...rule.scopeEntityIds])),
         triggers,
       } satisfies AffectedRule;
     })
@@ -478,153 +568,130 @@ const findRelevantValidationIssues = (input: {
 const createValidationIssues = (input: {
   validationIssues: ValidationCheck[];
   buildReadyRequested: boolean;
-}): {
-  blockers: ChangeReviewIssue[];
-  warnings: ChangeReviewIssue[];
-  notices: ChangeReviewIssue[];
-} =>
-  input.validationIssues.reduce<{
-    blockers: ChangeReviewIssue[];
-    warnings: ChangeReviewIssue[];
-    notices: ChangeReviewIssue[];
-  }>(
-    (accumulator, check) => {
-      const baseIssue = {
-        category: "validation" as const,
-        code: check.code,
-        title: check.code === "BUILD_READY_BLOCKED" ? "Build-ready validation blocker" : "Validation signal changed",
-        reason: check.message,
-        relatedEntityIds: check.relatedEntityIds,
-        recommendation: check.recommendation,
-      };
+}): GovernanceIssueBuckets =>
+  input.validationIssues.reduce<GovernanceIssueBuckets>((accumulator, check) => {
+    const severity: ChangeReviewIssueSeverity =
+      input.buildReadyRequested && check.status === "fail" && check.severity === "critical"
+        ? "blocker"
+        : check.status === "fail" || check.status === "warning"
+          ? "warning"
+          : "notice";
 
-      if (input.buildReadyRequested && check.status === "fail" && check.severity === "critical") {
-        accumulator.blockers.push({
-          ...baseIssue,
-          severity: "blocker",
-        });
-        return accumulator;
-      }
+    pushIssueBySeverity(accumulator, {
+      severity,
+      category: "validation",
+      source: "validation",
+      code: check.code,
+      title: check.code === "BUILD_READY_BLOCKED" ? "Build-ready validation blocker" : "Validation signal changed",
+      reason: check.message,
+      relatedEntityIds: check.relatedEntityIds,
+      recommendation: check.recommendation,
+      confirmationRequired: severity !== "notice",
+      overrideAllowed: false,
+    });
 
-      if (check.status === "fail" || check.status === "warning") {
-        accumulator.warnings.push({
-          ...baseIssue,
-          severity: "warning",
-        });
-        return accumulator;
-      }
-
-      accumulator.notices.push({
-        ...baseIssue,
-        severity: "notice",
-      });
-      return accumulator;
-    },
-    {
-      blockers: [],
-      warnings: [],
-      notices: [],
-    },
-  );
+    return accumulator;
+  }, createEmptyBuckets());
 
 const createInvariantIssues = (input: {
   invariants: AffectedInvariant[];
-  buildReadyRequested: boolean;
-}): {
-  blockers: ChangeReviewIssue[];
-  warnings: ChangeReviewIssue[];
-  notices: ChangeReviewIssue[];
-} =>
-  input.invariants.reduce<{
-    blockers: ChangeReviewIssue[];
-    warnings: ChangeReviewIssue[];
-    notices: ChangeReviewIssue[];
-  }>(
-    (accumulator, invariant) => {
-      const issue = {
-        category: "invariant" as const,
-        code: "INVARIANT_REVIEW",
-        title: `Invariant affected: ${invariant.name}`,
-        reason: invariant.triggers.join(" "),
-        relatedEntityIds: invariant.relatedEntityIds,
-        recommendation: invariant.directChange
-          ? "Review the invariant semantics before accepting this stable change."
-          : invariant.blocksBuildReady
-            ? "Review the affected scope before claiming the project is build-ready."
-            : "Confirm the affected scope still respects the invariant.",
-      };
-
-      if (input.buildReadyRequested && invariant.blocksBuildReady && invariant.directChange) {
-        accumulator.blockers.push({
-          ...issue,
-          severity: "blocker",
-        });
-        return accumulator;
-      }
-
-      if (invariant.directChange || invariant.scopeTouched || (input.buildReadyRequested && invariant.scope === "global")) {
-        if (input.buildReadyRequested || invariant.priority === "critical" || invariant.priority === "high") {
-          accumulator.warnings.push({
-            ...issue,
-            severity: "warning",
-          });
-          return accumulator;
-        }
-      }
-
-      accumulator.notices.push({
-        ...issue,
-        severity: "notice",
-      });
+  reviewTarget: ChangeReviewTarget;
+}): GovernanceIssueBuckets =>
+  input.invariants.reduce<GovernanceIssueBuckets>((accumulator, invariant) => {
+    if (!invariant.appliesToReviewTarget) {
       return accumulator;
-    },
-    {
-      blockers: [],
-      warnings: [],
-      notices: [],
-    },
-  );
+    }
+
+    const severity = applyGovernancePolicySeverity({
+      policy: invariant.policy,
+      reviewTarget: input.reviewTarget,
+      directChange: invariant.directChange,
+    });
+    const policySource: GovernancePolicySource = {
+      entityType: "invariant",
+      entityId: invariant.id,
+      entityName: invariant.name,
+      declaredSeverity: invariant.policy.reviewSeverity,
+      appliedSeverity: severity,
+      requiresConfirmation: invariant.policy.requiresConfirmation,
+      overrideAllowed: invariant.policy.overrideAllowed,
+      reviewMessage: invariant.policy.reviewMessage,
+      recommendation: invariant.policy.recommendation,
+      rationale: invariant.policy.rationale,
+    };
+
+    pushIssueBySeverity(accumulator, {
+      severity,
+      category: "invariant",
+      source: "policy",
+      code: "INVARIANT_REVIEW",
+      title: `Invariant affected: ${invariant.name}`,
+      reason: buildGovernanceReason(
+        invariant.policy.reviewMessage || invariant.triggers[0] || "",
+        invariant.triggers,
+        invariant.policy.rationale,
+      ),
+      relatedEntityIds: invariant.relatedEntityIds,
+      recommendation:
+        invariant.policy.recommendation ||
+        "Review the invariant semantics before accepting this stable change.",
+      confirmationRequired: invariant.policy.requiresConfirmation || severity !== "notice",
+      overrideAllowed: invariant.policy.overrideAllowed,
+      policySource,
+    });
+
+    return accumulator;
+  }, createEmptyBuckets());
 
 const createRuleIssues = (input: {
   rules: AffectedRule[];
-  buildReadyRequested: boolean;
-}): {
-  warnings: ChangeReviewIssue[];
-  notices: ChangeReviewIssue[];
-} =>
-  input.rules.reduce<{
-    warnings: ChangeReviewIssue[];
-    notices: ChangeReviewIssue[];
-  }>(
-    (accumulator, rule) => {
-      const issue = {
-        category: "rule" as const,
-        code: "RULE_REVIEW",
-        title: `Rule affected: ${rule.name}`,
-        reason: rule.triggers.join(" "),
-        relatedEntityIds: rule.relatedEntityIds,
-        recommendation: "Review the rule scope and enforcement before accepting this stable change.",
-      };
-
-      if (rule.directChange || rule.scopeTouched || (input.buildReadyRequested && rule.scope === "global")) {
-        accumulator.warnings.push({
-          ...issue,
-          severity: "warning",
-        });
-        return accumulator;
-      }
-
-      accumulator.notices.push({
-        ...issue,
-        severity: "notice",
-      });
+  reviewTarget: ChangeReviewTarget;
+}): GovernanceIssueBuckets =>
+  input.rules.reduce<GovernanceIssueBuckets>((accumulator, rule) => {
+    if (!rule.appliesToReviewTarget) {
       return accumulator;
-    },
-    {
-      warnings: [],
-      notices: [],
-    },
-  );
+    }
+
+    const severity = applyGovernancePolicySeverity({
+      policy: rule.policy,
+      reviewTarget: input.reviewTarget,
+      directChange: rule.directChange,
+    });
+    const policySource: GovernancePolicySource = {
+      entityType: "rule",
+      entityId: rule.id,
+      entityName: rule.name,
+      declaredSeverity: rule.policy.reviewSeverity,
+      appliedSeverity: severity,
+      requiresConfirmation: rule.policy.requiresConfirmation,
+      overrideAllowed: rule.policy.overrideAllowed,
+      reviewMessage: rule.policy.reviewMessage,
+      recommendation: rule.policy.recommendation,
+      rationale: rule.policy.rationale,
+    };
+
+    pushIssueBySeverity(accumulator, {
+      severity,
+      category: "rule",
+      source: "policy",
+      code: "RULE_REVIEW",
+      title: `Rule affected: ${rule.name}`,
+      reason: buildGovernanceReason(
+        rule.policy.reviewMessage || rule.triggers[0] || "",
+        rule.triggers,
+        rule.policy.rationale,
+      ),
+      relatedEntityIds: rule.relatedEntityIds,
+      recommendation:
+        rule.policy.recommendation ||
+        "Review the rule scope and enforcement before accepting this stable change.",
+      confirmationRequired: rule.policy.requiresConfirmation || severity !== "notice",
+      overrideAllowed: rule.policy.overrideAllowed,
+      policySource,
+    });
+
+    return accumulator;
+  }, createEmptyBuckets());
 
 const createStatusIssues = (input: {
   buildReadyRequested: boolean;
@@ -646,11 +713,14 @@ const createStatusIssues = (input: {
       {
         severity: "blocker",
         category: "status",
+        source: "status",
         code: "BUILD_READY_PROMOTION_BLOCKED",
         title: "Build-ready promotion is blocked",
         reason: `The proposed change cannot be accepted as build-ready. If you continue, the project will be saved as ${input.effectiveProjectStatus}.`,
         relatedEntityIds: [],
         recommendation: `Save as ${input.effectiveProjectStatus} and resolve blocker-level review issues before promoting build-ready.`,
+        confirmationRequired: true,
+        overrideAllowed: false,
       },
     ],
     notices: [],
@@ -664,12 +734,16 @@ const createReviewMessage = (input: {
   buildReadyAllowed: boolean;
   effectiveProjectStatus: Project["status"];
 }): string => {
-  if (input.level === "blocked") {
+  if (input.level === "blocked" && input.buildReadyRequested && !input.buildReadyAllowed) {
     return `Build-ready promotion is blocked. Review blocker issues before continuing. Confirming will save the project as ${input.effectiveProjectStatus}.`;
   }
 
+  if (input.level === "blocked") {
+    return "Blocker-level governance or validation review issues were detected. Review them before accepting this stable change.";
+  }
+
   if (input.level === "warning" && input.confirmationRequired) {
-    return "Review required. Invariants, rules, or validation signals were touched by this stable save.";
+    return "Review required. Invariants, rules, or validation signals were touched by this stable change.";
   }
 
   if (input.buildReadyRequested && input.buildReadyAllowed) {
@@ -726,6 +800,7 @@ export const buildChangeReview = (input: {
     candidateBlueprint: input.candidateBlueprint,
     structuralDiff,
     touchedContext,
+    reviewTarget,
     buildReadyRequested,
   });
   const affectedRules = analyzeAffectedRules({
@@ -733,6 +808,7 @@ export const buildChangeReview = (input: {
     candidateBlueprint: input.candidateBlueprint,
     structuralDiff,
     touchedContext,
+    reviewTarget,
     buildReadyRequested,
   });
   const relevantValidationIssues = findRelevantValidationIssues({
@@ -748,16 +824,17 @@ export const buildChangeReview = (input: {
   });
   const invariantIssues = createInvariantIssues({
     invariants: affectedInvariants,
-    buildReadyRequested,
+    reviewTarget,
   });
   const ruleIssues = createRuleIssues({
     rules: affectedRules,
-    buildReadyRequested,
+    reviewTarget,
   });
 
   const provisionalBlockers = dedupeIssues([
     ...validationIssues.blockers,
     ...invariantIssues.blockers,
+    ...ruleIssues.blockers,
   ]);
   const buildReadyAllowed =
     !buildReadyRequested ||
@@ -787,8 +864,11 @@ export const buildChangeReview = (input: {
   ]);
   const level: ChangeReviewLevel =
     blockers.length > 0 ? "blocked" : warnings.length > 0 ? "warning" : "clean";
-  const confirmationRequired = blockers.length > 0 || warnings.length > 0;
   const allIssues = [...blockers, ...warnings, ...notices];
+  const confirmationRequired =
+    blockers.length > 0 ||
+    warnings.length > 0 ||
+    allIssues.some((issue) => issue.confirmationRequired);
   const recommendations = dedupeRecommendations(allIssues);
 
   return {

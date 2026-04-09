@@ -14,6 +14,7 @@ import {
   outcomePrioritySchema,
   prioritySchema,
   projectStatusSchema,
+  reviewSeveritySchema,
   slugSchema,
   stringListSchema,
   textSchema,
@@ -41,6 +42,92 @@ const coerceLegacyKeys = (
   });
 
   return normalized;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const asBoolean = (value: unknown, fallback: boolean): boolean =>
+  typeof value === "boolean" ? value : fallback;
+
+const asString = (value: unknown, fallback = ""): string =>
+  typeof value === "string" ? value : fallback;
+
+const governancePolicyKeyMap = {
+  reviewSeverity: "review_severity",
+  affectsStableSave: "affects_stable_save",
+  affectsCheckpoint: "affects_checkpoint",
+  affectsBuildReady: "affects_build_ready",
+  blocksBuildReady: "blocks_build_ready",
+  requiresConfirmation: "requires_confirmation",
+  overrideAllowed: "override_allowed",
+  reviewMessage: "review_message",
+  recommendation: "recommendation_text",
+  rationale: "policy_rationale",
+} satisfies Record<string, string>;
+
+type GovernancePolicyInput = {
+  reviewSeverity: "blocker" | "warning" | "notice";
+  affectsStableSave: boolean;
+  affectsCheckpoint: boolean;
+  affectsBuildReady: boolean;
+  blocksBuildReady: boolean;
+  requiresConfirmation: boolean;
+  overrideAllowed: boolean;
+  reviewMessage: string;
+  recommendation: string;
+  rationale: string;
+};
+
+const createRulePolicyDefaults = (): GovernancePolicyInput => ({
+  reviewSeverity: "warning" as const,
+  affectsStableSave: true,
+  affectsCheckpoint: true,
+  affectsBuildReady: true,
+  blocksBuildReady: false,
+  requiresConfirmation: true,
+  overrideAllowed: false,
+  reviewMessage: "",
+  recommendation: "Review the rule scope and enforcement before accepting this stable change.",
+  rationale: "",
+});
+
+const createInvariantPolicyDefaults = (input: {
+  priority: "critical" | "high" | "medium" | "low";
+  blocksBuildReady: boolean;
+  overrideAllowed: boolean;
+  violationMessage: string;
+}): GovernancePolicyInput => ({
+  reviewSeverity:
+    input.priority === "critical" || input.priority === "high" ? ("warning" as const) : ("notice" as const),
+  affectsStableSave: true,
+  affectsCheckpoint: true,
+  affectsBuildReady: true,
+  blocksBuildReady: input.blocksBuildReady,
+  requiresConfirmation:
+    input.priority === "critical" || input.priority === "high" || input.blocksBuildReady,
+  overrideAllowed: input.overrideAllowed,
+  reviewMessage: input.violationMessage,
+  recommendation: input.blocksBuildReady
+    ? "Review the affected scope before claiming the project is build-ready."
+    : "Confirm the affected scope still respects the invariant.",
+  rationale: "",
+});
+
+const normalizeGovernancePolicy = (
+  policyInput: unknown,
+  defaults: GovernancePolicyInput,
+) => {
+  const normalizedPolicy = coerceLegacyKeys(policyInput, governancePolicyKeyMap);
+
+  if (!isRecord(normalizedPolicy)) {
+    return defaults;
+  }
+
+  return {
+    ...defaults,
+    ...normalizedPolicy,
+  };
 };
 
 export const ProjectSchema = z
@@ -127,20 +214,87 @@ export const DependencySchema = baseNamedEntitySchema.extend({
   required: z.boolean(),
 });
 
-export const RuleSchema = baseNamedEntitySchema.extend({
-  scope: entityScopeSchema,
-  scopeEntityIds: idListSchema,
-  enforcement: textSchema,
+export const GovernancePolicySchema = z.object({
+  reviewSeverity: reviewSeveritySchema,
+  affectsStableSave: z.boolean(),
+  affectsCheckpoint: z.boolean(),
+  affectsBuildReady: z.boolean(),
+  blocksBuildReady: z.boolean(),
+  requiresConfirmation: z.boolean(),
+  overrideAllowed: z.boolean(),
+  reviewMessage: textSchema,
+  recommendation: textSchema,
+  rationale: textSchema,
 });
 
-export const InvariantSchema = baseNamedEntitySchema.extend({
-  scope: entityScopeSchema,
-  scopeEntityIds: idListSchema,
-  priority: prioritySchema,
-  violationMessage: textSchema,
-  blocksBuildReady: z.boolean(),
-  overrideAllowed: z.boolean(),
-});
+export const RuleSchema = z.preprocess(
+  (input) => {
+    if (!isRecord(input)) {
+      return input;
+    }
+
+    const normalized = coerceLegacyKeys(input, {
+      scopeEntityIds: "scope_entity_ids",
+    });
+    if (!isRecord(normalized)) {
+      return normalized;
+    }
+
+    return {
+      ...normalized,
+      policy: normalizeGovernancePolicy(normalized.policy, createRulePolicyDefaults()),
+    };
+  },
+  baseNamedEntitySchema.extend({
+    scope: entityScopeSchema,
+    scopeEntityIds: idListSchema,
+    enforcement: textSchema,
+    policy: GovernancePolicySchema,
+  }),
+);
+
+export const InvariantSchema = z.preprocess(
+  (input) => {
+    if (!isRecord(input)) {
+      return input;
+    }
+
+    const normalized = coerceLegacyKeys(input, {
+      scopeEntityIds: "scope_entity_ids",
+      violationMessage: "violation_message",
+      blocksBuildReady: "blocks_build_ready",
+      overrideAllowed: "override_allowed",
+    });
+    if (!isRecord(normalized)) {
+      return normalized;
+    }
+
+    const priority = prioritySchema.catch("high").parse(asString(normalized.priority, "high"));
+    const violationMessage = asString(normalized.violationMessage, "");
+    const blocksBuildReady = asBoolean(normalized.blocksBuildReady, true);
+    const overrideAllowed = asBoolean(normalized.overrideAllowed, false);
+
+    return {
+      ...normalized,
+      policy: normalizeGovernancePolicy(
+        normalized.policy,
+        createInvariantPolicyDefaults({
+          priority,
+          blocksBuildReady,
+          overrideAllowed,
+          violationMessage,
+        }),
+      ),
+    };
+  },
+  baseNamedEntitySchema.extend({
+    scope: entityScopeSchema,
+    scopeEntityIds: idListSchema,
+    priority: prioritySchema,
+    violationMessage: textSchema,
+    policy: GovernancePolicySchema,
+  }),
+);
 
 export const GuardrailSchema = baseNamedEntitySchema.extend({
   protectedAgainst: textSchema,

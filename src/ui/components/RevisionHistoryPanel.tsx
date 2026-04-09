@@ -71,6 +71,9 @@ export const RevisionHistoryPanel = ({
                   {formatSourceLabel(revision.source)} | {revision.createdAt}
                 </span>
                 <span>{revision.summary}</span>
+                {revision.source === "manualCheckpoint" && revision.reason ? (
+                  <span className="muted">note: {revision.reason}</span>
+                ) : null}
               </button>
             </li>
           ))}

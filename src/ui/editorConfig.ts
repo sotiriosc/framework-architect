@@ -37,6 +37,7 @@ import {
   dependencyKindValues,
   entityScopeValues,
   priorityValues,
+  reviewSeverityValues,
 } from "@/schema";
 import type { EditorField } from "@/ui/components/CollectionEditor";
 
@@ -111,6 +112,16 @@ export const ruleFields: EditorField[] = [
   { key: "scope", label: "Scope", kind: "select", options: entityScopeValues },
   { key: "scopeEntityIds", label: "Scope entity IDs", kind: "csv" },
   { key: "enforcement", label: "Enforcement", kind: "textarea" },
+  { key: "policy.reviewSeverity", label: "Review severity", kind: "select", options: reviewSeverityValues },
+  { key: "policy.affectsStableSave", label: "Affects save review", kind: "boolean" },
+  { key: "policy.affectsCheckpoint", label: "Affects checkpoint review", kind: "boolean" },
+  { key: "policy.affectsBuildReady", label: "Affects build-ready review", kind: "boolean" },
+  { key: "policy.blocksBuildReady", label: "Blocks build-ready", kind: "boolean" },
+  { key: "policy.requiresConfirmation", label: "Requires confirmation", kind: "boolean" },
+  { key: "policy.overrideAllowed", label: "Override allowed", kind: "boolean" },
+  { key: "policy.reviewMessage", label: "Review message", kind: "textarea" },
+  { key: "policy.recommendation", label: "Recommendation", kind: "textarea" },
+  { key: "policy.rationale", label: "Policy rationale", kind: "textarea" },
 ];
 
 export const invariantFields: EditorField[] = [
@@ -120,8 +131,16 @@ export const invariantFields: EditorField[] = [
   { key: "scopeEntityIds", label: "Scope entity IDs", kind: "csv" },
   { key: "priority", label: "Priority", kind: "select", options: priorityValues },
   { key: "violationMessage", label: "Violation message", kind: "textarea" },
-  { key: "blocksBuildReady", label: "Blocks build-ready", kind: "boolean" },
-  { key: "overrideAllowed", label: "Override allowed", kind: "boolean" },
+  { key: "policy.reviewSeverity", label: "Review severity", kind: "select", options: reviewSeverityValues },
+  { key: "policy.affectsStableSave", label: "Affects save review", kind: "boolean" },
+  { key: "policy.affectsCheckpoint", label: "Affects checkpoint review", kind: "boolean" },
+  { key: "policy.affectsBuildReady", label: "Affects build-ready review", kind: "boolean" },
+  { key: "policy.blocksBuildReady", label: "Blocks build-ready", kind: "boolean" },
+  { key: "policy.requiresConfirmation", label: "Requires confirmation", kind: "boolean" },
+  { key: "policy.overrideAllowed", label: "Override allowed", kind: "boolean" },
+  { key: "policy.reviewMessage", label: "Review message", kind: "textarea" },
+  { key: "policy.recommendation", label: "Recommendation", kind: "textarea" },
+  { key: "policy.rationale", label: "Policy rationale", kind: "textarea" },
 ];
 
 export const guardrailFields: EditorField[] = [

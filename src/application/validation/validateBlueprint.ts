@@ -417,7 +417,8 @@ export const validateBlueprint = (blueprint: ProjectBlueprint): ValidationState 
     (rule) =>
       !rule.scope ||
       (rule.scope === "global" && rule.scopeEntityIds.length > 0) ||
-      (rule.scope !== "global" && rule.scopeEntityIds.length === 0),
+      (rule.scope !== "global" && rule.scopeEntityIds.length === 0) ||
+      (rule.policy.blocksBuildReady && rule.policy.overrideAllowed),
   );
   if (ruleFailures.length > 0) {
     ruleFailures.forEach((rule) => {
@@ -426,9 +427,10 @@ export const validateBlueprint = (blueprint: ProjectBlueprint): ValidationState 
           code: "RULE_SCOPE",
           status: "fail",
           severity: "high",
-          message: `Rule "${rule.name}" needs a valid scope definition${rule.scope === "global" ? " without scope entity IDs" : " with scoped entity IDs"}.`,
+          message: `Rule "${rule.name}" needs a valid scope definition${rule.scope === "global" ? " without scope entity IDs" : " with scoped entity IDs"} and non-conflicting policy metadata.`,
           relatedEntityIds: [rule.id],
-          recommendation: "Define the rule scope and, when scoped, attach the relevant entity IDs.",
+          recommendation:
+            "Define the rule scope correctly and keep build-ready blockers non-overridable.",
         }),
       );
     });
@@ -460,7 +462,7 @@ export const validateBlueprint = (blueprint: ProjectBlueprint): ValidationState 
       (invariant.scope === "global" && invariant.scopeEntityIds.length > 0) ||
       (invariant.scope !== "global" && invariant.scopeEntityIds.length === 0) ||
       !invariant.violationMessage ||
-      (invariant.blocksBuildReady && invariant.overrideAllowed),
+      (invariant.policy.blocksBuildReady && invariant.policy.overrideAllowed),
   );
   if (invariantFailures.length > 0) {
     invariantFailures.forEach((invariant) => {

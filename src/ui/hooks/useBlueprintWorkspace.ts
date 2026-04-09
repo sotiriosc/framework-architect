@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import type { ChangeReviewReady } from "@/application/review/buildChangeReview";
+import type { ChangeReviewReady, StableSaveSource } from "@/application/review/buildChangeReview";
 import type {
   RevisionComparisonMode,
   RevisionComparisonResult,
@@ -576,7 +576,22 @@ export const useBlueprintWorkspace = () => {
     });
   };
 
-  const saveCurrentProject = (reason: string) => {
+  const applyCommittedStableSave = (savedBlueprint: ProjectBlueprint, message: string) => {
+    refreshProjects(savedBlueprint.project.id, { preferLatestRevision: true });
+    setState((current) => ({
+      ...current,
+      draftBlueprint: structuredClone(savedBlueprint),
+      selectedProjectId: savedBlueprint.project.id,
+      pendingChangeReview: null,
+      workspaceFeedback: {
+        tone: "success",
+        message,
+      },
+      error: null,
+    }));
+  };
+
+  const runStableBoundaryAction = (source: StableSaveSource, reason: string) => {
     if (!state.draftBlueprint) {
       return;
     }
@@ -584,8 +599,8 @@ export const useBlueprintWorkspace = () => {
     try {
       const review = blueprintService.reviewStableSave({
         candidate: structuredClone(state.draftBlueprint),
-        reason: reason.trim() || "Manual blueprint update.",
-        source: "editSave",
+        reason,
+        source,
       });
 
       if (review.status === "no-change") {
@@ -628,25 +643,27 @@ export const useBlueprintWorkspace = () => {
         return;
       }
 
-      refreshProjects(committed.savedBlueprint.project.id, { preferLatestRevision: true });
-      setState((current) => ({
-        ...current,
-        draftBlueprint: structuredClone(committed.savedBlueprint),
-        selectedProjectId: committed.savedBlueprint.project.id,
-        pendingChangeReview: null,
-        workspaceFeedback: {
-          tone: "success",
-          message: committed.message,
-        },
-        error: null,
-      }));
+      applyCommittedStableSave(committed.savedBlueprint, committed.message);
     } catch (error) {
       setState((current) => ({
         ...current,
         workspaceFeedback: null,
-        error: error instanceof Error ? error.message : "Unable to save project.",
+        error:
+          error instanceof Error
+            ? error.message
+            : source === "manualCheckpoint"
+              ? "Unable to create checkpoint."
+              : "Unable to save project.",
       }));
     }
+  };
+
+  const saveCurrentProject = (reason: string) => {
+    runStableBoundaryAction("editSave", reason.trim() || "Manual blueprint update.");
+  };
+
+  const createManualCheckpoint = (note: string) => {
+    runStableBoundaryAction("manualCheckpoint", note.trim() || "Manual checkpoint.");
   };
 
   const confirmPendingChangeReview = () => {
@@ -667,22 +684,11 @@ export const useBlueprintWorkspace = () => {
           message: committed.reason,
         },
         error: null,
-      }));
+        }));
       return;
     }
 
-    refreshProjects(committed.savedBlueprint.project.id, { preferLatestRevision: true });
-    setState((current) => ({
-      ...current,
-      draftBlueprint: structuredClone(committed.savedBlueprint),
-      selectedProjectId: committed.savedBlueprint.project.id,
-      pendingChangeReview: null,
-      workspaceFeedback: {
-        tone: "success",
-        message: committed.message,
-      },
-      error: null,
-    }));
+    applyCommittedStableSave(committed.savedBlueprint, committed.message);
   };
 
   const dismissPendingChangeReview = () => {
@@ -743,6 +749,7 @@ export const useBlueprintWorkspace = () => {
     restorePreviewCandidate,
     clearQuarantinedPayload,
     saveCurrentProject,
+    createManualCheckpoint,
     confirmPendingChangeReview,
     dismissPendingChangeReview,
     reextractIntent,

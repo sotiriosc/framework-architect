@@ -176,12 +176,22 @@ export const createSeedBlueprint = (): ProjectBlueprint => {
   memoryRule.description = "Project, structural, and decision memory must be preserved on every save.";
   memoryRule.scope = "global";
   memoryRule.enforcement = "Required before persistence completes.";
+  memoryRule.policy.reviewSeverity = "warning";
+  memoryRule.policy.requiresConfirmation = true;
+  memoryRule.policy.reviewMessage = "Stable persistence should not bypass memory capture.";
+  memoryRule.policy.recommendation = "Review memory capture semantics before accepting the stable change.";
+  memoryRule.policy.rationale = "Memory drift breaks traceability across revisions.";
 
   const validationRule = createRule();
   validationRule.name = "Validation gates build-ready";
   validationRule.description = "Critical validation failures block build-ready state.";
   validationRule.scope = "global";
   validationRule.enforcement = "System-enforced during save.";
+  validationRule.policy.reviewSeverity = "warning";
+  validationRule.policy.blocksBuildReady = true;
+  validationRule.policy.reviewMessage = "Build-ready promotion must respect explicit validation gates.";
+  validationRule.policy.recommendation = "Resolve blocker-level validation issues before promoting build-ready.";
+  validationRule.policy.rationale = "Build-ready claims cannot outrun structural validation.";
 
   const transparencyInvariant = createInvariant();
   transparencyInvariant.name = "Governance stays explicit";
@@ -189,14 +199,24 @@ export const createSeedBlueprint = (): ProjectBlueprint => {
   transparencyInvariant.scope = "global";
   transparencyInvariant.priority = "critical";
   transparencyInvariant.violationMessage = "Governance logic cannot be hidden from the blueprint.";
-  transparencyInvariant.blocksBuildReady = true;
+  transparencyInvariant.policy.reviewSeverity = "warning";
+  transparencyInvariant.policy.blocksBuildReady = true;
+  transparencyInvariant.policy.reviewMessage = transparencyInvariant.violationMessage;
+  transparencyInvariant.policy.recommendation =
+    "Review the changed governance surface before treating the project as stable truth.";
+  transparencyInvariant.policy.rationale = "Hidden governance creates structural drift.";
 
   const localFirstInvariant = createInvariant();
   localFirstInvariant.name = "Persistence remains local-first in v1";
   localFirstInvariant.description = "The initial implementation must work without backend infrastructure.";
   localFirstInvariant.scope = "global";
   localFirstInvariant.violationMessage = "V1 cannot require backend infrastructure to function.";
-  localFirstInvariant.blocksBuildReady = true;
+  localFirstInvariant.policy.reviewSeverity = "warning";
+  localFirstInvariant.policy.blocksBuildReady = true;
+  localFirstInvariant.policy.reviewMessage = localFirstInvariant.violationMessage;
+  localFirstInvariant.policy.recommendation =
+    "Confirm the stable change still preserves the local-first promise before promotion.";
+  localFirstInvariant.policy.rationale = "Infrastructure drift breaks the v1 architecture contract.";
 
   const codegenGuardrail = createGuardrail();
   codegenGuardrail.name = "No code generation in v1";

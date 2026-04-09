@@ -52,6 +52,7 @@ const updateCurrent = (
 const App = () => {
   const workspace = useBlueprintWorkspace();
   const [saveReason, setSaveReason] = useState("Manual blueprint update.");
+  const [checkpointNote, setCheckpointNote] = useState("");
 
   return (
     <div className="app-shell">
@@ -88,6 +89,22 @@ const App = () => {
             onClick={() => workspace.saveCurrentProject(saveReason)}
           >
             Save blueprint
+          </button>
+          <label className="field field--wide">
+            <span>Checkpoint note</span>
+            <input
+              value={checkpointNote}
+              onChange={(event) => setCheckpointNote(event.target.value)}
+              placeholder="Optional milestone note"
+            />
+          </label>
+          <button
+            type="button"
+            className="button-secondary"
+            disabled={!workspace.draftBlueprint}
+            onClick={() => workspace.createManualCheckpoint(checkpointNote)}
+          >
+            Create checkpoint
           </button>
         </div>
       </header>

@@ -49,11 +49,19 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - Revision history is separate from active blueprint storage and separate from quarantine recovery
 - Revisions are tracked per project and persisted in their own local store
 - Each revision keeps metadata, a blueprint snapshot, and a structural diff summary
-- Revisions are created only at stable boundaries in this repo: explicit project saves, recovery restores, and initial seed/system backfill
+- Revisions are created only at stable boundaries in this repo: explicit project saves, manual checkpoints, recovery restores, and initial seed/system backfill
 - No-op saves do not create duplicates, and draft edits in the workspace do not create per-keystroke revision spam
 - Recovery restore writes a revision with `source = recoveryRestore` when the restored snapshot differs meaningfully from the latest revision
-- Edit-driven revisions use `source = editSave`; the source enum also leaves room for future `manualCheckpoint` support without changing the model
+- Edit-driven revisions use `source = editSave`
+- Manual milestone captures use `source = manualCheckpoint` and can carry an optional checkpoint note on the resulting revision
 - Revision history is intentionally not rollback, branching, or collaboration yet
+
+## Manual Checkpoints
+- A manual checkpoint is an explicit milestone capture of the current draft as stable truth
+- It uses the same stable review path as normal save, including invariant/rule impact review and validation-aware build-ready gating
+- Manual checkpoints are distinct from normal saves in revision metadata, so the timeline can show deliberate milestone captures separately from routine edits
+- Checkpoint notes are lightweight and optional; when provided they are stored on the resulting `manualCheckpoint` revision
+- No-op checkpoints do not create duplicate revisions
 
 ## Revision Comparison
 - The history panel can compare a selected revision against the immediately previous revision, another selected revision, or the current active project state
@@ -65,11 +73,21 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - Stable change review runs at explicit save boundaries, not on every draft edit
 - The review compares the current stable project against the proposed save using the same shared structural diff path used elsewhere in the app
 - It then inspects affected invariants, affected rules, and relevant validation signals before the save is accepted as project truth
+- Invariant and rule behavior is now driven primarily by explicit governance policy metadata on those entities rather than being buried in service heuristics
+- Policy metadata includes review severity, save/checkpoint/build-ready applicability, build-ready blocking, confirmation requirements, override visibility, review messaging, recommendations, and rationale
 - Reviews classify findings into blockers, warnings, and notices with explicit recommendations
 - Warning-level reviewed saves require an explicit confirm action before persistence
+- Warning-level reviewed checkpoints require the same explicit confirm action before persistence
 - Blocker-level review currently blocks build-ready promotion, but still allows a confirmed save to persist as `validated` so drafts do not get trapped
 - No-op saves do not open review and do not create duplicate revisions
 - Change review is separate from schema validation, separate from revision history, and separate from quarantine recovery
+
+## Governance Policy Metadata
+- Rules and invariants carry explicit `policy` metadata in the domain schema
+- The app keeps camelCase internally and still accepts older stored entities without `policy` by deriving safe defaults during schema parsing
+- Older invariants that used top-level `blocksBuildReady` and `overrideAllowed` still hydrate into the current nested policy shape
+- Seed governance examples now include explicit policy messages and rationale so the review surface is inspectable from day one
+- This is not a second validation engine; it is a declarative layer that guides stable save review using the same shared diff path and existing validation output
 
 ## Quarantine Recovery
 - Quarantined entries can be inspected in-app with failure reason, stage, detected version, and raw payload preview
@@ -96,7 +114,7 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - Revision-to-revision and revision-to-current comparison use the same summary shape, so the history UI and recovery preview do not diverge
 
 ## What Change Review Does Not Do Yet
-- It does not evaluate semantics beyond explicit invariant/rule scope, build-ready blocking flags, and validation output
+- It does not evaluate semantics beyond explicit policy metadata, invariant/rule scope, build-ready blocking flags, and validation output
 - It does not revert or roll back anything
 - It does not add branching, collaboration, or policy automation
 

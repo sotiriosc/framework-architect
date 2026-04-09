@@ -229,6 +229,39 @@ const resolveRecoveryPayload = (
 export class BlueprintService {
   constructor(private readonly repository: ProjectRepository) {}
 
+  private defaultStableBoundaryReason(source: StableSaveSource): string {
+    return source === "manualCheckpoint" ? "Manual checkpoint." : "Manual blueprint update.";
+  }
+
+  private executeStableBoundaryAction(input: {
+    candidate: ProjectBlueprint;
+    reason: string;
+    source: StableSaveSource;
+  }): ProjectBlueprint {
+    const parsed = ProjectBlueprintSchema.parse(cloneBlueprint(input.candidate));
+    const review = this.reviewStableSave({
+      candidate: parsed,
+      reason: input.reason,
+      source: input.source,
+    });
+
+    if (review.status === "no-change") {
+      const existing = this.repository.find(parsed.project.id);
+      return cloneBlueprint(existing ?? parsed);
+    }
+
+    const committed = this.commitStableSave({
+      review,
+      confirm: true,
+    });
+
+    if (!committed.success) {
+      throw new Error(committed.reason);
+    }
+
+    return committed.savedBlueprint;
+  }
+
   private persistReviewedSave(review: ChangeReviewReady): StableSaveCommitResult {
     try {
       const next = cloneBlueprint(review.candidateBlueprint);
@@ -252,8 +285,12 @@ export class BlueprintService {
 
       const statusMessage =
         review.requestedProjectStatus === "build-ready" && review.effectiveProjectStatus !== "build-ready"
-          ? `Blueprint saved as ${review.effectiveProjectStatus}. Build-ready promotion remained blocked by change review.`
-          : "Blueprint saved.";
+          ? review.saveSource === "manualCheckpoint"
+            ? `Manual checkpoint recorded as ${review.effectiveProjectStatus}. Build-ready promotion remained blocked by change review.`
+            : `Blueprint saved as ${review.effectiveProjectStatus}. Build-ready promotion remained blocked by change review.`
+          : review.saveSource === "manualCheckpoint"
+            ? "Manual checkpoint recorded."
+            : "Blueprint saved.";
 
       return {
         success: true,
@@ -596,7 +633,7 @@ export class BlueprintService {
       baselineBlueprint: existing,
       latestRevision,
       candidateBlueprint: parsed,
-      reason: input.reason.trim() || "Manual blueprint update.",
+      reason: input.reason.trim() || this.defaultStableBoundaryReason(input.source ?? "editSave"),
       saveSource: input.source ?? "editSave",
     });
   }
@@ -633,28 +670,19 @@ export class BlueprintService {
   }
 
   saveBlueprint(candidate: ProjectBlueprint, reason: string): ProjectBlueprint {
-    const parsed = ProjectBlueprintSchema.parse(cloneBlueprint(candidate));
-    const review = this.reviewStableSave({
-      candidate: parsed,
+    return this.executeStableBoundaryAction({
+      candidate,
       reason,
       source: "editSave",
     });
+  }
 
-    if (review.status === "no-change") {
-      const existing = this.repository.find(parsed.project.id);
-      return cloneBlueprint(existing ?? parsed);
-    }
-
-    const committed = this.commitStableSave({
-      review,
-      confirm: true,
+  createManualCheckpoint(candidate: ProjectBlueprint, reason: string): ProjectBlueprint {
+    return this.executeStableBoundaryAction({
+      candidate,
+      reason,
+      source: "manualCheckpoint",
     });
-
-    if (!committed.success) {
-      throw new Error(committed.reason);
-    }
-
-    return committed.savedBlueprint;
   }
 
   selectProject(projectId: string | null): ProjectBlueprint | null {
