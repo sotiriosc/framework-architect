@@ -114,11 +114,44 @@ The app uses a repository interface with a localStorage adapter. That keeps pers
 - Earliest revisions are handled explicitly when no previous revision exists instead of silently inventing a comparison target
 - Revision comparison is separate from quarantine recovery preview even though both features reuse the same structural diff model
 
+## Stable Change Review
+- Stable change review is an application-layer gate in front of explicit stable saves
+- It does not run on every draft edit; the current repo only invokes it from the explicit save flow
+- The review baseline is the current stable saved project plus latest revision metadata when available
+- Review diffing reuses the shared `compareBlueprints(...)` path instead of inventing a second diff engine
+
+## Change Review Model
+- Each review captures: target, source project id, baseline metadata, candidate snapshot, structural diff, affected invariants, affected rules, relevant validation issues, blockers, warnings, notices, recommendations, confirmation requirement, stable save allowance, and build-ready allowance
+- Review levels are explicit: `clean`, `warning`, `blocked`
+- `blocked` currently means build-ready promotion cannot proceed as requested; it does not mean drafts are trapped forever
+
+## Invariant / Rule Impact Rules
+- Direct changes to rules or invariants are always surfaced
+- Scoped rules or invariants are surfaced when their scoped entities are touched by the proposed stable change
+- Component-linked invariants are surfaced when changed components still reference them
+- Global invariants and rules are especially surfaced during build-ready promotion because the user is asking the system to accept stable truth at the highest status
+- The review remains deterministic and inspectable; it does not attempt speculative semantic reasoning
+
+## Blockers, Warnings, And Notices
+- Blockers currently come from build-ready-critical validation issues, direct changes to build-ready-blocking invariants during build-ready promotion, and the resulting explicit build-ready promotion block
+- Warnings come from affected rules, affected invariants, and newly relevant validation issues introduced by the proposed stable save
+- Notices are lower-severity informational review items that do not require confirmation by themselves
+- Warning or blocker reviews require an explicit confirm action before the stable save is committed
+
+## Save And Revision Interaction
+- Draft edits stay in the workspace and do not create review spam
+- No-op saves produce a no-change review result and do not create a revision
+- Only completed stable saves create revisions
+- Cancelled review flows do not write active storage and do not create revisions
+- If build-ready promotion is blocked, a confirmed save persists the project as `validated` and then records the resulting revision
+- Recovery restore keeps its own preview/confirm flow and is not routed through stable change review
+
 ## Intentionally Not Included Yet
 - No rollback or revert
 - No branching or alternate revision graphs
 - No collaboration or merge logic
 - No mixing of revision history with storage-format migration
+- No semantic policy engine beyond deterministic invariant/rule scope review plus validation signals
 
 ## Adding Future Migrations
 - Add a new ordered step to the migration registry

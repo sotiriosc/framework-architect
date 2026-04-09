@@ -7,6 +7,12 @@ import {
 } from "@/domain/defaults";
 import type { MemoryState, ProjectBlueprint } from "@/domain/models";
 import {
+  buildChangeReview,
+  type ChangeReviewReady,
+  type ChangeReviewResult,
+  type StableSaveSource,
+} from "@/application/review/buildChangeReview";
+import {
   buildRestoreCandidate,
   type RestoreCandidate,
   type RestoreMode,
@@ -17,7 +23,6 @@ import {
   type RevisionComparisonMode,
   type RevisionComparisonResult,
 } from "@/application/review/buildRevisionComparison";
-import { compareBlueprints } from "@/application/review/compareBlueprints";
 import { nowIso } from "@/lib/identity";
 import type { ProjectRepository } from "@/persistence/projectRepository";
 import type { BlueprintRevision, RevisionSource } from "@/persistence/revisionTypes";
@@ -33,7 +38,7 @@ import { QuarantineExportDocumentSchema, QuarantinedPayloadSchema } from "@/pers
 import { ProjectBlueprintSchema } from "@/schema";
 import { createSeedBlueprint } from "@/seed/exampleBlueprint";
 import { extractIntentFromRawIdea } from "@/application/intake/extractIntent";
-import { hasCriticalValidationFailures, validateBlueprint } from "@/application/validation/validateBlueprint";
+import { validateBlueprint } from "@/application/validation/validateBlueprint";
 
 const cloneBlueprint = (blueprint: ProjectBlueprint): ProjectBlueprint => structuredClone(blueprint);
 
@@ -141,6 +146,22 @@ export type QuarantineRestoreFailure = {
 
 export type QuarantineRestoreResult = QuarantineRestoreSuccess | QuarantineRestoreFailure;
 
+export type StableSaveCommitSuccess = {
+  success: true;
+  savedBlueprint: ProjectBlueprint;
+  recordedRevisionNumber: number | null;
+  effectiveProjectStatus: ProjectBlueprint["project"]["status"];
+  message: string;
+};
+
+export type StableSaveCommitFailure = {
+  success: false;
+  code: "review-required" | "confirmation-required" | "save-blocked" | "persist-failed";
+  reason: string;
+};
+
+export type StableSaveCommitResult = StableSaveCommitSuccess | StableSaveCommitFailure;
+
 const createQuarantineExport = (entry: QuarantinedPayload): QuarantineExportDocument => ({
   exportVersion: 1,
   quarantine: entry,
@@ -207,6 +228,48 @@ const resolveRecoveryPayload = (
 
 export class BlueprintService {
   constructor(private readonly repository: ProjectRepository) {}
+
+  private persistReviewedSave(review: ChangeReviewReady): StableSaveCommitResult {
+    try {
+      const next = cloneBlueprint(review.candidateBlueprint);
+      const stamp = nowIso();
+      const current = this.repository.find(next.project.id);
+
+      next.project.status = review.effectiveProjectStatus;
+      next.project.version = current ? current.project.version + 1 : next.project.version;
+      next.project.updatedAt = stamp;
+      next.validation = validateBlueprint(next);
+      next.memory = appendMemorySnapshot(next.memory, next, review.reason || "Manual blueprint update.");
+
+      this.repository.save(next);
+      this.repository.setSelectedProjectId(next.project.id);
+
+      const recordedRevision = this.recordProjectRevision({
+        snapshot: next,
+        source: review.saveSource,
+        reason: review.reason,
+      });
+
+      const statusMessage =
+        review.requestedProjectStatus === "build-ready" && review.effectiveProjectStatus !== "build-ready"
+          ? `Blueprint saved as ${review.effectiveProjectStatus}. Build-ready promotion remained blocked by change review.`
+          : "Blueprint saved.";
+
+      return {
+        success: true,
+        savedBlueprint: next,
+        recordedRevisionNumber: recordedRevision?.revisionNumber ?? null,
+        effectiveProjectStatus: next.project.status,
+        message: `${statusMessage}${recordedRevision ? ` Revision ${recordedRevision.revisionNumber} was recorded.` : ""}`,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        code: "persist-failed",
+        reason: error instanceof Error ? error.message : "Unable to persist the reviewed project change.",
+      };
+    }
+  }
 
   private recordProjectRevision(input: {
     snapshot: ProjectBlueprint;
@@ -520,44 +583,78 @@ export class BlueprintService {
     return this.saveBlueprint(next, "Re-extracted intent and primary outcome from the raw idea.");
   }
 
+  reviewStableSave(input: {
+    candidate: ProjectBlueprint;
+    reason: string;
+    source?: StableSaveSource;
+  }): ChangeReviewResult {
+    const parsed = ProjectBlueprintSchema.parse(cloneBlueprint(input.candidate));
+    const existing = this.repository.find(parsed.project.id) ?? null;
+    const latestRevision = this.repository.getLatestProjectRevision(parsed.project.id) ?? null;
+
+    return buildChangeReview({
+      baselineBlueprint: existing,
+      latestRevision,
+      candidateBlueprint: parsed,
+      reason: input.reason.trim() || "Manual blueprint update.",
+      saveSource: input.source ?? "editSave",
+    });
+  }
+
+  commitStableSave(input: {
+    review: ChangeReviewResult | null;
+    confirm: boolean;
+  }): StableSaveCommitResult {
+    if (!input.review || input.review.status !== "ready") {
+      return {
+        success: false,
+        code: "review-required",
+        reason: "Run a stable save review before attempting to commit the change.",
+      };
+    }
+
+    if (!input.review.stableSaveAllowed) {
+      return {
+        success: false,
+        code: "save-blocked",
+        reason: "This reviewed change cannot be committed as stable project truth.",
+      };
+    }
+
+    if (input.review.confirmationRequired && !input.confirm) {
+      return {
+        success: false,
+        code: "confirmation-required",
+        reason: "Explicit confirmation is required before this reviewed change can be saved.",
+      };
+    }
+
+    return this.persistReviewedSave(input.review);
+  }
+
   saveBlueprint(candidate: ProjectBlueprint, reason: string): ProjectBlueprint {
     const parsed = ProjectBlueprintSchema.parse(cloneBlueprint(candidate));
-    const existing = this.repository.find(parsed.project.id);
-    if (existing) {
-      const structuralDiff = compareBlueprints({
-        activeBlueprint: existing,
-        candidateBlueprint: parsed,
-      });
-
-      if (structuralDiff.identical) {
-        return cloneBlueprint(existing);
-      }
-    }
-
-    const next = cloneBlueprint(parsed);
-    const stamp = nowIso();
-    const current = this.repository.find(next.project.id);
-
-    next.project.version = current ? current.project.version + 1 : next.project.version;
-    next.project.updatedAt = stamp;
-
-    next.validation = validateBlueprint(next);
-
-    if (next.project.status === "build-ready" && hasCriticalValidationFailures(next.validation)) {
-      next.project.status = "validated";
-    }
-
-    next.memory = appendMemorySnapshot(next.memory, next, reason || "Manual blueprint update.");
-
-    this.repository.save(next);
-    this.repository.setSelectedProjectId(next.project.id);
-    this.recordProjectRevision({
-      snapshot: next,
-      source: "editSave",
+    const review = this.reviewStableSave({
+      candidate: parsed,
       reason,
+      source: "editSave",
     });
 
-    return next;
+    if (review.status === "no-change") {
+      const existing = this.repository.find(parsed.project.id);
+      return cloneBlueprint(existing ?? parsed);
+    }
+
+    const committed = this.commitStableSave({
+      review,
+      confirm: true,
+    });
+
+    if (!committed.success) {
+      throw new Error(committed.reason);
+    }
+
+    return committed.savedBlueprint;
   }
 
   selectProject(projectId: string | null): ProjectBlueprint | null {

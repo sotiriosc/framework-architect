@@ -61,6 +61,16 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - Current active comparison is useful for inspecting unsaved drift in the active workspace without creating a revision
 - Revision comparison is an inspection feature only. Revert/rollback remains intentionally out of scope for this step
 
+## Stable Change Review
+- Stable change review runs at explicit save boundaries, not on every draft edit
+- The review compares the current stable project against the proposed save using the same shared structural diff path used elsewhere in the app
+- It then inspects affected invariants, affected rules, and relevant validation signals before the save is accepted as project truth
+- Reviews classify findings into blockers, warnings, and notices with explicit recommendations
+- Warning-level reviewed saves require an explicit confirm action before persistence
+- Blocker-level review currently blocks build-ready promotion, but still allows a confirmed save to persist as `validated` so drafts do not get trapped
+- No-op saves do not open review and do not create duplicate revisions
+- Change review is separate from schema validation, separate from revision history, and separate from quarantine recovery
+
 ## Quarantine Recovery
 - Quarantined entries can be inspected in-app with failure reason, stage, detected version, and raw payload preview
 - Export writes an inspectable JSON file containing the quarantined metadata and raw payload without mutating the stored entry
@@ -84,6 +94,11 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - Captured changes include project and intent scalar fields, decision logic summaries, MVP and expansion scope summaries, and added/removed/changed entities across the main blueprint collections
 - Scope item collections, decision records, and failure modes are also tracked so meaningful blueprint changes do not disappear into a no-op save
 - Revision-to-revision and revision-to-current comparison use the same summary shape, so the history UI and recovery preview do not diverge
+
+## What Change Review Does Not Do Yet
+- It does not evaluate semantics beyond explicit invariant/rule scope, build-ready blocking flags, and validation output
+- It does not revert or roll back anything
+- It does not add branching, collaboration, or policy automation
 
 ## Adding Future Migrations
 1. Add a new `fromVersion -> toVersion` step in `src/persistence/migrations.ts`

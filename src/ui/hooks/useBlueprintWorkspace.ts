@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import type { ChangeReviewReady } from "@/application/review/buildChangeReview";
 import type {
   RevisionComparisonMode,
   RevisionComparisonResult,
@@ -31,12 +32,19 @@ type QuarantineFeedback = {
   message: string;
 };
 
+type WorkspaceFeedback = {
+  tone: "success" | "error";
+  message: string;
+};
+
 type WorkspaceState = {
   projects: ProjectBlueprint[];
   selectedProjectId: string | null;
   draftBlueprint: ProjectBlueprint | null;
   createDraft: CreateProjectDraft;
   loadReport: RepositoryLoadReport | null;
+  workspaceFeedback: WorkspaceFeedback | null;
+  pendingChangeReview: ChangeReviewReady | null;
   projectRevisions: BlueprintRevision[];
   selectedRevisionId: string | null;
   revisionCompareMode: RevisionComparisonMode;
@@ -106,6 +114,8 @@ const initializeWorkspace = (): WorkspaceState => {
     draftBlueprint: selectedProject ? structuredClone(selectedProject) : null,
     createDraft: defaultCreateDraft,
     loadReport,
+    workspaceFeedback: null,
+    pendingChangeReview: null,
     projectRevisions,
     selectedRevisionId,
     revisionCompareMode: "previous",
@@ -192,6 +202,8 @@ export const useBlueprintWorkspace = () => {
         selectedProjectId: resolvedSelectedProjectId,
         draftBlueprint: selectedProject ? structuredClone(selectedProject) : null,
         loadReport: loaded.report,
+        workspaceFeedback: options?.preferLatestRevision ? current.workspaceFeedback : null,
+        pendingChangeReview: null,
         projectRevisions,
         selectedRevisionId,
         revisionCompareMode,
@@ -231,6 +243,11 @@ export const useBlueprintWorkspace = () => {
         ...current,
         draftBlueprint: structuredClone(created),
         createDraft: defaultCreateDraft,
+        workspaceFeedback: {
+          tone: "success",
+          message: "Project blueprint created.",
+        },
+        pendingChangeReview: null,
         error: null,
       }));
     } catch (error) {
@@ -256,6 +273,8 @@ export const useBlueprintWorkspace = () => {
       ...current,
       selectedProjectId: selected?.project.id ?? null,
       draftBlueprint: selected ? structuredClone(selected) : null,
+      workspaceFeedback: null,
+      pendingChangeReview: null,
       projectRevisions,
       selectedRevisionId,
       revisionCompareMode: "previous",
@@ -285,6 +304,7 @@ export const useBlueprintWorkspace = () => {
       selectedCompareRevisionId: revisionComparisonState.selectedCompareRevisionId,
       revisionComparison: revisionComparisonState.revisionComparison,
       showRevisionSnapshotJson: false,
+      workspaceFeedback: null,
     }));
   };
 
@@ -302,6 +322,7 @@ export const useBlueprintWorkspace = () => {
       revisionCompareMode: compareMode,
       selectedCompareRevisionId: revisionComparisonState.selectedCompareRevisionId,
       revisionComparison: revisionComparisonState.revisionComparison,
+      workspaceFeedback: null,
     }));
   };
 
@@ -319,6 +340,7 @@ export const useBlueprintWorkspace = () => {
       revisionCompareMode: "revision",
       selectedCompareRevisionId: revisionComparisonState.selectedCompareRevisionId,
       revisionComparison: revisionComparisonState.revisionComparison,
+      workspaceFeedback: null,
     }));
   };
 
@@ -333,6 +355,7 @@ export const useBlueprintWorkspace = () => {
     setState((current) => ({
       ...current,
       createDraft,
+      workspaceFeedback: null,
     }));
   };
 
@@ -544,6 +567,8 @@ export const useBlueprintWorkspace = () => {
       return {
         ...current,
         draftBlueprint: nextDraftBlueprint,
+        pendingChangeReview: null,
+        workspaceFeedback: null,
         selectedCompareRevisionId:
           revisionComparisonState?.selectedCompareRevisionId ?? current.selectedCompareRevisionId,
         revisionComparison: revisionComparisonState?.revisionComparison ?? current.revisionComparison,
@@ -557,23 +582,116 @@ export const useBlueprintWorkspace = () => {
     }
 
     try {
-      const saved = blueprintService.saveBlueprint(
-        structuredClone(state.draftBlueprint),
-        reason.trim() || "Manual blueprint update.",
-      );
-      refreshProjects(saved.project.id, { preferLatestRevision: true });
+      const review = blueprintService.reviewStableSave({
+        candidate: structuredClone(state.draftBlueprint),
+        reason: reason.trim() || "Manual blueprint update.",
+        source: "editSave",
+      });
+
+      if (review.status === "no-change") {
+        setState((current) => ({
+          ...current,
+          pendingChangeReview: null,
+          workspaceFeedback: {
+            tone: "success",
+            message: review.message,
+          },
+          error: null,
+        }));
+        return;
+      }
+
+      if (review.confirmationRequired) {
+        setState((current) => ({
+          ...current,
+          pendingChangeReview: review,
+          workspaceFeedback: null,
+          error: null,
+        }));
+        return;
+      }
+
+      const committed = blueprintService.commitStableSave({
+        review,
+        confirm: true,
+      });
+
+      if (!committed.success) {
+        setState((current) => ({
+          ...current,
+          workspaceFeedback: {
+            tone: "error",
+            message: committed.reason,
+          },
+          error: null,
+        }));
+        return;
+      }
+
+      refreshProjects(committed.savedBlueprint.project.id, { preferLatestRevision: true });
       setState((current) => ({
         ...current,
-        draftBlueprint: structuredClone(saved),
-        selectedProjectId: saved.project.id,
+        draftBlueprint: structuredClone(committed.savedBlueprint),
+        selectedProjectId: committed.savedBlueprint.project.id,
+        pendingChangeReview: null,
+        workspaceFeedback: {
+          tone: "success",
+          message: committed.message,
+        },
         error: null,
       }));
     } catch (error) {
       setState((current) => ({
         ...current,
+        workspaceFeedback: null,
         error: error instanceof Error ? error.message : "Unable to save project.",
       }));
     }
+  };
+
+  const confirmPendingChangeReview = () => {
+    if (!state.pendingChangeReview) {
+      return;
+    }
+
+    const committed = blueprintService.commitStableSave({
+      review: state.pendingChangeReview,
+      confirm: true,
+    });
+
+    if (!committed.success) {
+      setState((current) => ({
+        ...current,
+        workspaceFeedback: {
+          tone: "error",
+          message: committed.reason,
+        },
+        error: null,
+      }));
+      return;
+    }
+
+    refreshProjects(committed.savedBlueprint.project.id, { preferLatestRevision: true });
+    setState((current) => ({
+      ...current,
+      draftBlueprint: structuredClone(committed.savedBlueprint),
+      selectedProjectId: committed.savedBlueprint.project.id,
+      pendingChangeReview: null,
+      workspaceFeedback: {
+        tone: "success",
+        message: committed.message,
+      },
+      error: null,
+    }));
+  };
+
+  const dismissPendingChangeReview = () => {
+    setState((current) => ({
+      ...current,
+      pendingChangeReview: null,
+      workspaceFeedback: null,
+      error: null,
+    }));
   };
 
   const reextractIntent = () => {
@@ -588,11 +706,17 @@ export const useBlueprintWorkspace = () => {
         ...current,
         draftBlueprint: structuredClone(saved),
         selectedProjectId: saved.project.id,
+        pendingChangeReview: null,
+        workspaceFeedback: {
+          tone: "success",
+          message: "Intent and primary outcome were re-extracted and saved.",
+        },
         error: null,
       }));
     } catch (error) {
       setState((current) => ({
         ...current,
+        workspaceFeedback: null,
         error: error instanceof Error ? error.message : "Unable to re-extract intent.",
       }));
     }
@@ -619,6 +743,8 @@ export const useBlueprintWorkspace = () => {
     restorePreviewCandidate,
     clearQuarantinedPayload,
     saveCurrentProject,
+    confirmPendingChangeReview,
+    dismissPendingChangeReview,
     reextractIntent,
   };
 };

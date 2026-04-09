@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type { ProjectBlueprint } from "@/domain/models";
+import { ChangeReviewPanel } from "@/ui/components/ChangeReviewPanel";
 import { CollectionEditor } from "@/ui/components/CollectionEditor";
 import { IntentOutcomeEditor } from "@/ui/components/IntentOutcomeEditor";
 import { MemoryViewer } from "@/ui/components/MemoryViewer";
@@ -93,6 +94,20 @@ const App = () => {
 
       {workspace.error ? (
         <div className="status-banner status-banner--error">{workspace.error}</div>
+      ) : null}
+
+      {workspace.workspaceFeedback ? (
+        <div className={`status-banner status-banner--${workspace.workspaceFeedback.tone}`}>
+          {workspace.workspaceFeedback.message}
+        </div>
+      ) : null}
+
+      {workspace.pendingChangeReview ? (
+        <ChangeReviewPanel
+          review={workspace.pendingChangeReview}
+          onConfirm={workspace.confirmPendingChangeReview}
+          onCancel={workspace.dismissPendingChangeReview}
+        />
       ) : null}
 
       <main className="workspace-grid">
