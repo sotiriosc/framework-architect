@@ -6,6 +6,7 @@ import { IntentOutcomeEditor } from "@/ui/components/IntentOutcomeEditor";
 import { MemoryViewer } from "@/ui/components/MemoryViewer";
 import { BlueprintViewer } from "@/ui/components/BlueprintViewer";
 import { ProjectForm } from "@/ui/components/ProjectForm";
+import { PersistenceStatusPanel } from "@/ui/components/PersistenceStatusPanel";
 import { SectionCard } from "@/ui/components/SectionCard";
 import { ValidationPanel } from "@/ui/components/ValidationPanel";
 import {
@@ -64,7 +65,8 @@ const App = () => {
             <span>Current project</span>
             <select
               value={workspace.selectedProjectId ?? ""}
-              onChange={(event) => workspace.selectProject(event.target.value)}
+              onChange={(event) => workspace.selectProject(event.target.value || null)}
+              disabled={workspace.projects.length === 0}
             >
               {workspace.projects.map((project) => (
                 <option key={project.project.id} value={project.project.id}>
@@ -448,6 +450,10 @@ const App = () => {
         </div>
 
         <div className="workspace-grid__inspector">
+          <PersistenceStatusPanel
+            loadReport={workspace.loadReport}
+            quarantinedPayloads={workspace.quarantinedPayloads}
+          />
           {workspace.draftBlueprint ? (
             <>
               <ValidationPanel

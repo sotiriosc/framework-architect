@@ -3,6 +3,7 @@ import { useState } from "react";
 import { BlueprintService } from "@/application/services/blueprintService";
 import type { ProjectBlueprint } from "@/domain/models";
 import { LocalProjectRepository } from "@/persistence/localProjectRepository";
+import type { QuarantinedPayload, RepositoryLoadReport } from "@/persistence/types";
 import type { CreateProjectDraft } from "@/ui/components/ProjectForm";
 
 const repository = new LocalProjectRepository();
@@ -20,11 +21,13 @@ type WorkspaceState = {
   selectedProjectId: string | null;
   draftBlueprint: ProjectBlueprint | null;
   createDraft: CreateProjectDraft;
+  loadReport: RepositoryLoadReport | null;
+  quarantinedPayloads: QuarantinedPayload[];
   error: string | null;
 };
 
 const initializeWorkspace = (): WorkspaceState => {
-  const { projects, selectedProjectId } = blueprintService.bootstrap();
+  const { projects, selectedProjectId, loadReport, quarantinedPayloads } = blueprintService.bootstrap();
   const selectedProject =
     (selectedProjectId ? projects.find((project) => project.project.id === selectedProjectId) : null) ??
     projects[0] ??
@@ -35,6 +38,8 @@ const initializeWorkspace = (): WorkspaceState => {
     selectedProjectId: selectedProject?.project.id ?? null,
     draftBlueprint: selectedProject ? structuredClone(selectedProject) : null,
     createDraft: defaultCreateDraft,
+    loadReport,
+    quarantinedPayloads,
     error: null,
   };
 };
@@ -49,16 +54,29 @@ export const useBlueprintWorkspace = () => {
   const [state, setState] = useState<WorkspaceState>(() => initializeWorkspace());
 
   const refreshProjects = (selectedProjectId: string | null) => {
-    const projects = repository.list();
+    const loaded = repository.loadAll();
+    const projects = loaded.projects;
+    const resolvedSelectedProjectId =
+      selectedProjectId && projects.some((project) => project.project.id === selectedProjectId)
+        ? selectedProjectId
+        : projects[0]?.project.id ?? null;
     const selectedProject =
-      (selectedProjectId ? projects.find((project) => project.project.id === selectedProjectId) : null) ??
+      (resolvedSelectedProjectId
+        ? projects.find((project) => project.project.id === resolvedSelectedProjectId)
+        : null) ??
       null;
+
+    if (resolvedSelectedProjectId !== selectedProjectId) {
+      repository.setSelectedProjectId(resolvedSelectedProjectId);
+    }
 
     setState((current) => ({
       ...current,
       projects,
-      selectedProjectId,
+      selectedProjectId: resolvedSelectedProjectId,
       draftBlueprint: selectedProject ? structuredClone(selectedProject) : null,
+      loadReport: loaded.report,
+      quarantinedPayloads: repository.listQuarantinedPayloads(),
       error: null,
     }));
   };
@@ -80,10 +98,9 @@ export const useBlueprintWorkspace = () => {
         invariantPriorities: parseInvariantPriorities(state.createDraft.invariantPrioritiesText),
       });
 
+      refreshProjects(created.project.id);
       setState((current) => ({
         ...current,
-        projects: repository.list(),
-        selectedProjectId: created.project.id,
         draftBlueprint: structuredClone(created),
         createDraft: defaultCreateDraft,
         error: null,
@@ -96,11 +113,11 @@ export const useBlueprintWorkspace = () => {
     }
   };
 
-  const selectProject = (projectId: string) => {
+  const selectProject = (projectId: string | null) => {
     const selected = blueprintService.selectProject(projectId);
     setState((current) => ({
       ...current,
-      selectedProjectId: projectId,
+      selectedProjectId: selected?.project.id ?? null,
       draftBlueprint: selected ? structuredClone(selected) : null,
       error: null,
     }));
@@ -141,7 +158,6 @@ export const useBlueprintWorkspace = () => {
         ...current,
         draftBlueprint: structuredClone(saved),
         selectedProjectId: saved.project.id,
-        projects: repository.list(),
         error: null,
       }));
     } catch (error) {
@@ -164,7 +180,6 @@ export const useBlueprintWorkspace = () => {
         ...current,
         draftBlueprint: structuredClone(saved),
         selectedProjectId: saved.project.id,
-        projects: repository.list(),
         error: null,
       }));
     } catch (error) {

@@ -8,6 +8,7 @@ import {
 import type { MemoryState, ProjectBlueprint } from "@/domain/models";
 import { nowIso } from "@/lib/identity";
 import type { ProjectRepository } from "@/persistence/projectRepository";
+import type { QuarantinedPayload, RepositoryLoadReport } from "@/persistence/types";
 import { ProjectBlueprintSchema } from "@/schema";
 import { createSeedBlueprint } from "@/seed/exampleBlueprint";
 import { extractIntentFromRawIdea } from "@/application/intake/extractIntent";
@@ -58,21 +59,38 @@ const appendMemorySnapshot = (
   };
 };
 
+export type BlueprintBootstrapResult = {
+  projects: ProjectBlueprint[];
+  selectedProjectId: string | null;
+  loadReport: RepositoryLoadReport;
+  quarantinedPayloads: QuarantinedPayload[];
+};
+
 export class BlueprintService {
   constructor(private readonly repository: ProjectRepository) {}
 
-  bootstrap(): { projects: ProjectBlueprint[]; selectedProjectId: string | null } {
-    const seededProjects = this.repository.seed([createSeedBlueprint()]);
-    const selectedProjectId =
-      this.repository.getSelectedProjectId() ?? seededProjects[0]?.project.id ?? null;
+  bootstrap(): BlueprintBootstrapResult {
+    let loaded = this.repository.loadAll();
+
+    if (loaded.projects.length === 0 && loaded.report.status === "empty" && loaded.report.quarantineCount === 0) {
+      this.repository.seed([createSeedBlueprint()]);
+      loaded = this.repository.loadAll();
+    }
+
+    const selectedProjectIdFromStorage = this.repository.getSelectedProjectId();
+    const selectedProjectId = loaded.projects.some((project) => project.project.id === selectedProjectIdFromStorage)
+      ? selectedProjectIdFromStorage
+      : loaded.projects[0]?.project.id ?? null;
 
     if (selectedProjectId) {
       this.repository.setSelectedProjectId(selectedProjectId);
     }
 
     return {
-      projects: seededProjects,
+      projects: loaded.projects,
       selectedProjectId,
+      loadReport: loaded.report,
+      quarantinedPayloads: this.repository.listQuarantinedPayloads(),
     };
   }
 

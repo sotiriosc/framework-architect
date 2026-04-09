@@ -17,12 +17,12 @@ The blueprint document contains:
 - dependencies
 - rules
 - invariants
-- decision_logic
-- failure_modes
+- decisionLogic
+- failureModes
 - guardrails
 - phases
-- mvp_scope
-- expansion_scope
+- mvpScope
+- expansionScope
 - validation
 - memory
 
@@ -44,3 +44,28 @@ The validation engine enforces:
 
 ## Persistence Strategy
 The app uses a repository interface with a localStorage adapter. That keeps persistence replaceable so a future database layer can be added without rewriting domain, schema, or validation code.
+
+## Storage Evolution Model
+- `project.version` tracks blueprint edits inside the domain
+- `storageVersion` tracks the persisted document format
+- The current storage contract is a versioned wrapper document: `{ storageVersion, storedAt, projects }`
+
+## Migration Flow
+- Read the raw persisted payload
+- Detect the stored payload version
+- Normalize legacy snake_case fields into camelCase
+- Upgrade legacy IDs into the prefixed UUID contract
+- Fill safe defaults for fields added after the older payload was saved
+- Validate the migrated result against the current schema
+- Return a valid blueprint set or a structured quarantine result
+
+## Quarantine Behavior
+- Unrecoverable payloads are preserved under a quarantine key instead of being dropped
+- Quarantine entries keep failure stage, detected version, migration steps, timestamp, and raw payload
+- The app exposes migration/quarantine status in the workspace so recovery is inspectable
+
+## Adding Future Migrations
+- Add a new ordered step to the migration registry
+- Keep steps deterministic and explicit
+- Preserve editable drafts by limiting migration to shape recovery and safe defaults
+- Keep relational governance checks in the validation engine rather than moving them into schema coercion
