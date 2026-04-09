@@ -21,14 +21,16 @@ const summarizeRevision = (input: {
     switch (input.source) {
       case "seed":
         return "Initial seed snapshot recorded.";
-      case "migration":
-        return "Initial revision backfilled from migrated active storage.";
       case "system":
         return "Initial revision backfilled from active storage.";
       case "recoveryRestore":
         return "Initial revision created from recovered project restore.";
       case "import":
         return "Initial revision created from imported project state.";
+      case "manualCheckpoint":
+        return "Initial manual checkpoint recorded.";
+      case "editSave":
+        return "Initial stable saved project state recorded.";
       default:
         return "Initial project revision recorded.";
     }
@@ -38,12 +40,14 @@ const summarizeRevision = (input: {
   const sourceLabel =
     input.source === "recoveryRestore"
       ? "Recovery restore"
-      : input.source === "manualEdit"
-        ? "Manual edit"
-        : input.source === "migration"
-          ? "Migration"
+      : input.source === "manualCheckpoint"
+        ? "Manual checkpoint"
+        : input.source === "editSave"
+          ? "Saved edit"
           : input.source === "import"
             ? "Import"
+            : input.source === "seed"
+              ? "Seed snapshot"
             : "System update";
 
   if (changeCount === 0) {

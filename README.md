@@ -49,9 +49,17 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - Revision history is separate from active blueprint storage and separate from quarantine recovery
 - Revisions are tracked per project and persisted in their own local store
 - Each revision keeps metadata, a blueprint snapshot, and a structural diff summary
-- Revisions are created for meaningful changes only; no-op saves do not create duplicates
+- Revisions are created only at stable boundaries in this repo: explicit project saves, recovery restores, and initial seed/system backfill
+- No-op saves do not create duplicates, and draft edits in the workspace do not create per-keystroke revision spam
 - Recovery restore writes a revision with `source = recoveryRestore` when the restored snapshot differs meaningfully from the latest revision
+- Edit-driven revisions use `source = editSave`; the source enum also leaves room for future `manualCheckpoint` support without changing the model
 - Revision history is intentionally not rollback, branching, or collaboration yet
+
+## Revision Comparison
+- The history panel can compare a selected revision against the immediately previous revision, another selected revision, or the current active project state
+- All revision comparisons reuse the same shared structural diff path used by recovery preview; there is still one diff truth layer
+- Current active comparison is useful for inspecting unsaved drift in the active workspace without creating a revision
+- Revision comparison is an inspection feature only. Revert/rollback remains intentionally out of scope for this step
 
 ## Quarantine Recovery
 - Quarantined entries can be inspected in-app with failure reason, stage, detected version, and raw payload preview
@@ -75,6 +83,7 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - Revision diffs reuse the same architecture-oriented compare model as recovery preview
 - Captured changes include project and intent scalar fields, decision logic summaries, MVP and expansion scope summaries, and added/removed/changed entities across the main blueprint collections
 - Scope item collections, decision records, and failure modes are also tracked so meaningful blueprint changes do not disappear into a no-op save
+- Revision-to-revision and revision-to-current comparison use the same summary shape, so the history UI and recovery preview do not diverge
 
 ## Adding Future Migrations
 1. Add a new `fromVersion -> toVersion` step in `src/persistence/migrations.ts`

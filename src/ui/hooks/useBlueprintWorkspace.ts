@@ -1,5 +1,9 @@
 import { useState } from "react";
 
+import type {
+  RevisionComparisonMode,
+  RevisionComparisonResult,
+} from "@/application/review/buildRevisionComparison";
 import {
   BlueprintService,
   type QuarantinePreviewResult,
@@ -35,6 +39,9 @@ type WorkspaceState = {
   loadReport: RepositoryLoadReport | null;
   projectRevisions: BlueprintRevision[];
   selectedRevisionId: string | null;
+  revisionCompareMode: RevisionComparisonMode;
+  selectedCompareRevisionId: string | null;
+  revisionComparison: RevisionComparisonResult | null;
   showRevisionSnapshotJson: boolean;
   quarantinedPayloads: QuarantinedPayload[];
   selectedQuarantineId: string | null;
@@ -46,6 +53,36 @@ type WorkspaceState = {
   error: string | null;
 };
 
+const parseInvariantPriorities = (value: string): string[] =>
+  value
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const resolveRevisionComparison = (input: {
+  projectId: string | null;
+  baseRevisionId: string | null;
+  compareMode: RevisionComparisonMode;
+  compareRevisionId: string | null;
+  activeBlueprint: ProjectBlueprint | null;
+}) => {
+  const revisionComparison = blueprintService.buildRevisionComparison({
+    projectId: input.projectId,
+    baseRevisionId: input.baseRevisionId,
+    mode: input.compareMode,
+    compareRevisionId: input.compareRevisionId,
+    activeBlueprint: input.activeBlueprint,
+  });
+
+  return {
+    revisionComparison,
+    selectedCompareRevisionId:
+      revisionComparison.mode === "revision" && revisionComparison.compareTarget?.kind === "revision"
+        ? revisionComparison.compareTarget.revisionId
+        : null,
+  };
+};
+
 const initializeWorkspace = (): WorkspaceState => {
   const { projects, selectedProjectId, loadReport, quarantinedPayloads } = blueprintService.bootstrap();
   const selectedProject =
@@ -53,6 +90,14 @@ const initializeWorkspace = (): WorkspaceState => {
     projects[0] ??
     null;
   const projectRevisions = blueprintService.listProjectRevisions(selectedProject?.project.id ?? null);
+  const selectedRevisionId = projectRevisions[0]?.id ?? null;
+  const revisionComparisonState = resolveRevisionComparison({
+    projectId: selectedProject?.project.id ?? null,
+    baseRevisionId: selectedRevisionId,
+    compareMode: "previous",
+    compareRevisionId: null,
+    activeBlueprint: selectedProject ? structuredClone(selectedProject) : null,
+  });
   const selectedQuarantine = quarantinedPayloads[0] ?? null;
 
   return {
@@ -62,7 +107,10 @@ const initializeWorkspace = (): WorkspaceState => {
     createDraft: defaultCreateDraft,
     loadReport,
     projectRevisions,
-    selectedRevisionId: projectRevisions[0]?.id ?? null,
+    selectedRevisionId,
+    revisionCompareMode: "previous",
+    selectedCompareRevisionId: revisionComparisonState.selectedCompareRevisionId,
+    revisionComparison: revisionComparisonState.revisionComparison,
     showRevisionSnapshotJson: false,
     quarantinedPayloads,
     selectedQuarantineId: selectedQuarantine?.id ?? null,
@@ -75,16 +123,10 @@ const initializeWorkspace = (): WorkspaceState => {
   };
 };
 
-const parseInvariantPriorities = (value: string): string[] =>
-  value
-    .split("\n")
-    .map((item) => item.trim())
-    .filter(Boolean);
-
 export const useBlueprintWorkspace = () => {
   const [state, setState] = useState<WorkspaceState>(() => initializeWorkspace());
 
-  const refreshProjects = (selectedProjectId: string | null) => {
+  const refreshProjects = (selectedProjectId: string | null, options?: { preferLatestRevision?: boolean }) => {
     const loaded = repository.loadAll();
     const projects = loaded.projects;
     const resolvedSelectedProjectId =
@@ -104,11 +146,19 @@ export const useBlueprintWorkspace = () => {
     setState((current) => {
       const projectRevisions = blueprintService.listProjectRevisions(resolvedSelectedProjectId);
       const selectedRevisionId =
-        current.selectedProjectId === resolvedSelectedProjectId &&
+        options?.preferLatestRevision
+          ? projectRevisions[0]?.id ?? null
+          : current.selectedProjectId === resolvedSelectedProjectId &&
         current.selectedRevisionId &&
         projectRevisions.some((revision) => revision.id === current.selectedRevisionId)
           ? current.selectedRevisionId
           : projectRevisions[0]?.id ?? null;
+      const revisionCompareMode =
+        options?.preferLatestRevision
+          ? "previous"
+          : current.selectedProjectId === resolvedSelectedProjectId
+            ? current.revisionCompareMode
+            : "previous";
       const quarantinedPayloads = blueprintService.listQuarantinedPayloads();
       const selectedQuarantineId =
         current.selectedQuarantineId &&
@@ -123,6 +173,18 @@ export const useBlueprintWorkspace = () => {
           : selectedQuarantine
             ? formatJson(selectedQuarantine.rawPayload)
             : "";
+      const revisionComparisonState = resolveRevisionComparison({
+        projectId: resolvedSelectedProjectId,
+        baseRevisionId: selectedRevisionId,
+        compareMode: revisionCompareMode,
+        compareRevisionId:
+          options?.preferLatestRevision
+            ? null
+            : current.selectedProjectId === resolvedSelectedProjectId
+              ? current.selectedCompareRevisionId
+              : null,
+        activeBlueprint: selectedProject ? structuredClone(selectedProject) : null,
+      });
 
       return {
         ...current,
@@ -132,6 +194,9 @@ export const useBlueprintWorkspace = () => {
         loadReport: loaded.report,
         projectRevisions,
         selectedRevisionId,
+        revisionCompareMode,
+        selectedCompareRevisionId: revisionComparisonState.selectedCompareRevisionId,
+        revisionComparison: revisionComparisonState.revisionComparison,
         showRevisionSnapshotJson: false,
         quarantinedPayloads,
         selectedQuarantineId,
@@ -161,7 +226,7 @@ export const useBlueprintWorkspace = () => {
         invariantPriorities: parseInvariantPriorities(state.createDraft.invariantPrioritiesText),
       });
 
-      refreshProjects(created.project.id);
+      refreshProjects(created.project.id, { preferLatestRevision: true });
       setState((current) => ({
         ...current,
         draftBlueprint: structuredClone(created),
@@ -179,12 +244,23 @@ export const useBlueprintWorkspace = () => {
   const selectProject = (projectId: string | null) => {
     const selected = blueprintService.selectProject(projectId);
     const projectRevisions = blueprintService.listProjectRevisions(selected?.project.id ?? null);
+    const selectedRevisionId = projectRevisions[0]?.id ?? null;
+    const revisionComparisonState = resolveRevisionComparison({
+      projectId: selected?.project.id ?? null,
+      baseRevisionId: selectedRevisionId,
+      compareMode: "previous",
+      compareRevisionId: null,
+      activeBlueprint: selected ? structuredClone(selected) : null,
+    });
     setState((current) => ({
       ...current,
       selectedProjectId: selected?.project.id ?? null,
       draftBlueprint: selected ? structuredClone(selected) : null,
       projectRevisions,
-      selectedRevisionId: projectRevisions[0]?.id ?? null,
+      selectedRevisionId,
+      revisionCompareMode: "previous",
+      selectedCompareRevisionId: revisionComparisonState.selectedCompareRevisionId,
+      revisionComparison: revisionComparisonState.revisionComparison,
       showRevisionSnapshotJson: false,
       quarantinePreview: null,
       restoreConfirmationChecked: false,
@@ -194,10 +270,55 @@ export const useBlueprintWorkspace = () => {
   };
 
   const selectRevision = (revisionId: string | null) => {
+    const revisionComparisonState = resolveRevisionComparison({
+      projectId: state.selectedProjectId,
+      baseRevisionId: revisionId,
+      compareMode: "previous",
+      compareRevisionId: null,
+      activeBlueprint: state.draftBlueprint ? structuredClone(state.draftBlueprint) : null,
+    });
+
     setState((current) => ({
       ...current,
       selectedRevisionId: revisionId,
+      revisionCompareMode: "previous",
+      selectedCompareRevisionId: revisionComparisonState.selectedCompareRevisionId,
+      revisionComparison: revisionComparisonState.revisionComparison,
       showRevisionSnapshotJson: false,
+    }));
+  };
+
+  const setRevisionCompareMode = (compareMode: RevisionComparisonMode) => {
+    const revisionComparisonState = resolveRevisionComparison({
+      projectId: state.selectedProjectId,
+      baseRevisionId: state.selectedRevisionId,
+      compareMode,
+      compareRevisionId: compareMode === "revision" ? state.selectedCompareRevisionId : null,
+      activeBlueprint: state.draftBlueprint ? structuredClone(state.draftBlueprint) : null,
+    });
+
+    setState((current) => ({
+      ...current,
+      revisionCompareMode: compareMode,
+      selectedCompareRevisionId: revisionComparisonState.selectedCompareRevisionId,
+      revisionComparison: revisionComparisonState.revisionComparison,
+    }));
+  };
+
+  const selectCompareRevision = (compareRevisionId: string | null) => {
+    const revisionComparisonState = resolveRevisionComparison({
+      projectId: state.selectedProjectId,
+      baseRevisionId: state.selectedRevisionId,
+      compareMode: "revision",
+      compareRevisionId,
+      activeBlueprint: state.draftBlueprint ? structuredClone(state.draftBlueprint) : null,
+    });
+
+    setState((current) => ({
+      ...current,
+      revisionCompareMode: "revision",
+      selectedCompareRevisionId: revisionComparisonState.selectedCompareRevisionId,
+      revisionComparison: revisionComparisonState.revisionComparison,
     }));
   };
 
@@ -370,7 +491,7 @@ export const useBlueprintWorkspace = () => {
       return;
     }
 
-    refreshProjects(result.selectedProjectId);
+    refreshProjects(result.selectedProjectId, { preferLatestRevision: true });
     setState((current) => ({
       ...current,
       quarantineFeedback: {
@@ -408,9 +529,24 @@ export const useBlueprintWorkspace = () => {
         return current;
       }
 
+      const nextDraftBlueprint = updater(structuredClone(current.draftBlueprint));
+      const revisionComparisonState =
+        current.revisionCompareMode === "current"
+          ? resolveRevisionComparison({
+              projectId: current.selectedProjectId,
+              baseRevisionId: current.selectedRevisionId,
+              compareMode: current.revisionCompareMode,
+              compareRevisionId: current.selectedCompareRevisionId,
+              activeBlueprint: nextDraftBlueprint,
+            })
+          : null;
+
       return {
         ...current,
-        draftBlueprint: updater(structuredClone(current.draftBlueprint)),
+        draftBlueprint: nextDraftBlueprint,
+        selectedCompareRevisionId:
+          revisionComparisonState?.selectedCompareRevisionId ?? current.selectedCompareRevisionId,
+        revisionComparison: revisionComparisonState?.revisionComparison ?? current.revisionComparison,
       };
     });
   };
@@ -425,7 +561,7 @@ export const useBlueprintWorkspace = () => {
         structuredClone(state.draftBlueprint),
         reason.trim() || "Manual blueprint update.",
       );
-      refreshProjects(saved.project.id);
+      refreshProjects(saved.project.id, { preferLatestRevision: true });
       setState((current) => ({
         ...current,
         draftBlueprint: structuredClone(saved),
@@ -447,7 +583,7 @@ export const useBlueprintWorkspace = () => {
 
     try {
       const saved = blueprintService.reextractIntent(structuredClone(state.draftBlueprint));
-      refreshProjects(saved.project.id);
+      refreshProjects(saved.project.id, { preferLatestRevision: true });
       setState((current) => ({
         ...current,
         draftBlueprint: structuredClone(saved),
@@ -467,6 +603,8 @@ export const useBlueprintWorkspace = () => {
     createProject,
     selectProject,
     selectRevision,
+    setRevisionCompareMode,
+    selectCompareRevision,
     selectQuarantinedPayload,
     updateCreateDraft,
     updateDraftBlueprint,

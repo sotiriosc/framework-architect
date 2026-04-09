@@ -12,6 +12,11 @@ import {
   type RestoreMode,
 } from "@/application/review/buildRestoreCandidate";
 import { buildBlueprintRevision } from "@/application/review/buildBlueprintRevision";
+import {
+  buildRevisionComparison,
+  type RevisionComparisonMode,
+  type RevisionComparisonResult,
+} from "@/application/review/buildRevisionComparison";
 import { compareBlueprints } from "@/application/review/compareBlueprints";
 import { nowIso } from "@/lib/identity";
 import type { ProjectRepository } from "@/persistence/projectRepository";
@@ -257,7 +262,7 @@ export class BlueprintService {
     if (loaded.projects.length > 0) {
       this.ensureProjectRevisionHistory(
         loaded.projects,
-        seeded ? "seed" : loaded.report.migrated ? "migration" : "system",
+        seeded ? "seed" : "system",
       );
     }
 
@@ -336,6 +341,22 @@ export class BlueprintService {
 
   getProjectRevision(revisionId: string): BlueprintRevision | null {
     return this.repository.getProjectRevision(revisionId) ?? null;
+  }
+
+  buildRevisionComparison(input: {
+    projectId: string | null;
+    baseRevisionId: string | null;
+    mode?: RevisionComparisonMode;
+    compareRevisionId?: string | null;
+    activeBlueprint?: ProjectBlueprint | null;
+  }): RevisionComparisonResult {
+    return buildRevisionComparison({
+      revisions: input.projectId ? this.repository.listProjectRevisions(input.projectId) : [],
+      baseRevisionId: input.baseRevisionId,
+      mode: input.mode,
+      compareRevisionId: input.compareRevisionId,
+      activeBlueprint: input.activeBlueprint ?? null,
+    });
   }
 
   previewQuarantinedPayload(input: {
@@ -532,7 +553,7 @@ export class BlueprintService {
     this.repository.setSelectedProjectId(next.project.id);
     this.recordProjectRevision({
       snapshot: next,
-      source: "manualEdit",
+      source: "editSave",
       reason,
     });
 

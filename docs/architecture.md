@@ -90,21 +90,29 @@ The app uses a repository interface with a localStorage adapter. That keeps pers
 ## Revision History Model
 - Revisions are per-project timeline entries, separate from active blueprint persistence and separate from quarantine data
 - Each revision stores: id, projectId, revisionNumber, previousRevisionId, createdAt, source, summary, optional reason, optional related decision record ids, snapshot, and structural diff summary
-- Sources are explicit: `manualEdit`, `recoveryRestore`, `import`, `seed`, `migration`, `system`
+- Sources are explicit: `manualCheckpoint`, `editSave`, `recoveryRestore`, `import`, `seed`, `system`
 - Revision ordering is deterministic through `revisionNumber`
 
 ## Revision Creation Rules
 - The first saved state of a project gets revision `1`
 - Meaningful structural changes create a new revision
 - No-op saves do not create duplicate revisions
+- Draft edits do not create revisions because the repo keeps editable project state in the workspace until an explicit save happens
 - Recovery restore records a `recoveryRestore` revision when the restored project differs meaningfully from the latest revision
-- Existing projects loaded after this feature can be backfilled with an initial `seed`, `migration`, or `system` revision when no revision history exists yet
+- Existing projects loaded after this feature can be backfilled with an initial `seed` or `system` revision when no revision history exists yet
 
 ## Structural Diff Model
 - Revision diffs reuse the same application-layer compare model used for quarantine recovery preview
 - Scalar diffs include project fields, intent fields, decision logic summaries, MVP scope summary, and expansion scope summary
 - Collection diffs include outcomes, actors, constraints, domains, functions, components, flows, dependencies, rules, invariants, guardrails, phases, MVP scope items, expansion scope items, decision records, and failure modes
 - Each changed collection entry keeps IDs, human-readable labels, and changed field names
+
+## Revision Comparison
+- Revision comparison is application-layer orchestration on top of persisted revision snapshots and the current active project state
+- Supported modes are: selected revision vs previous revision, selected revision vs another selected revision, and selected revision vs current active project
+- The selected revision is the focus target; the comparison target is resolved deterministically and then passed through the shared `compareBlueprints(...)` path
+- Earliest revisions are handled explicitly when no previous revision exists instead of silently inventing a comparison target
+- Revision comparison is separate from quarantine recovery preview even though both features reuse the same structural diff model
 
 ## Intentionally Not Included Yet
 - No rollback or revert

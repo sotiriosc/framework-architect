@@ -56,7 +56,7 @@ describe("revision history", () => {
     expect(revisions).toHaveLength(1);
     expect(revisions[0]?.revisionNumber).toBe(1);
     expect(revisions[0]?.previousRevisionId).toBeNull();
-    expect(revisions[0]?.source).toBe("manualEdit");
+    expect(revisions[0]?.source).toBe("editSave");
   });
 
   it("creates a new revision for a meaningful manual edit and increments revision numbers", () => {
@@ -91,6 +91,20 @@ describe("revision history", () => {
 
     expect(revisions).toHaveLength(1);
     expect(saved.project.version).toBe(created.project.version);
+  });
+
+  it("does not create revisions for unsaved draft-only edits", () => {
+    const { service } = setupService(createTestStorage());
+    const created = service.createProject({
+      name: "Draft-only edits",
+      rawIdea: "Unsaved draft edits must not create revision spam.",
+    });
+
+    const draftOnly = structuredClone(created);
+    draftOnly.project.corePhilosophy = "Draft change that stays in memory only.";
+
+    expect(service.listProjectRevisions(created.project.id)).toHaveLength(1);
+    expect(service.listProjectRevisions(created.project.id)[0]?.source).toBe("editSave");
   });
 
   it("records structural diffs for added, removed, and changed entities", () => {

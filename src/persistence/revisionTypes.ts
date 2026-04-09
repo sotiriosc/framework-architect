@@ -6,11 +6,11 @@ import { createId, nowIso } from "@/lib/identity";
 import { ProjectBlueprintSchema, timestampSchema } from "@/schema";
 
 export const RevisionSourceSchema = z.enum([
-  "manualEdit",
+  "manualCheckpoint",
+  "editSave",
   "recoveryRestore",
   "import",
   "seed",
-  "migration",
   "system",
 ]);
 

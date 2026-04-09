@@ -493,8 +493,13 @@ const App = () => {
                       null
                     : null
                 }
+                compareMode={workspace.revisionCompareMode}
+                selectedCompareRevisionId={workspace.selectedCompareRevisionId}
+                comparison={workspace.revisionComparison}
                 showSnapshotJson={workspace.showRevisionSnapshotJson}
                 onSelectRevision={workspace.selectRevision}
+                onCompareModeChange={workspace.setRevisionCompareMode}
+                onCompareRevisionChange={workspace.selectCompareRevision}
                 onToggleSnapshotJson={workspace.toggleRevisionSnapshotJson}
               />
               <MemoryViewer memory={workspace.draftBlueprint.memory} />
