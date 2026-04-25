@@ -9,10 +9,12 @@ import {
   BlueprintService,
   type QuarantinePreviewResult,
 } from "@/application/services/blueprintService";
+import type { GuidedIntakeInput } from "@/application/intake/composeBlueprintFromGuidedIntake";
 import type { ProjectBlueprint } from "@/domain/models";
 import { LocalProjectRepository } from "@/persistence/localProjectRepository";
 import type { BlueprintRevision } from "@/persistence/revisionTypes";
 import type { QuarantinedPayload, RepositoryLoadReport } from "@/persistence/types";
+import type { GuidedIntakeDraft } from "@/ui/components/GuidedBlueprintWizard";
 import type { CreateProjectDraft } from "@/ui/components/ProjectForm";
 
 const repository = new LocalProjectRepository();
@@ -23,6 +25,20 @@ const defaultCreateDraft: CreateProjectDraft = {
   rawIdea: "",
   corePhilosophy: "Architecture first. Keep governance explicit and inspectable.",
   invariantPrioritiesText: "Transparency\nTraceability\nBuild-ready only after validation",
+};
+
+const defaultGuidedIntakeDraft: GuidedIntakeDraft = {
+  projectName: "",
+  frameworkType: "",
+  rawIdea: "",
+  targetUser: "",
+  problem: "",
+  intendedOutcome: "",
+  corePrinciplesText: "Make assumptions explicit\nKeep scope inspectable\nValidate before implementation",
+  mustRemainTrueText: "The blueprint remains local-first and governed\nBuild-ready claims require validation",
+  mvpBoundaryText: "",
+  expansionIdeasText: "",
+  knownRisksText: "",
 };
 
 const formatJson = (value: unknown): string => JSON.stringify(value, null, 2) ?? "null";
@@ -42,6 +58,8 @@ type WorkspaceState = {
   selectedProjectId: string | null;
   draftBlueprint: ProjectBlueprint | null;
   createDraft: CreateProjectDraft;
+  guidedIntakeDraft: GuidedIntakeDraft;
+  projectLatestRevisionNumbers: Record<string, number | null>;
   loadReport: RepositoryLoadReport | null;
   workspaceFeedback: WorkspaceFeedback | null;
   pendingChangeReview: ChangeReviewReady | null;
@@ -66,6 +84,33 @@ const parseInvariantPriorities = (value: string): string[] =>
     .split("\n")
     .map((item) => item.trim())
     .filter(Boolean);
+
+const parseLines = (value: string): string[] =>
+  value
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const toGuidedIntakeInput = (draft: GuidedIntakeDraft): GuidedIntakeInput => ({
+  rawIdea: draft.rawIdea.trim(),
+  projectName: draft.projectName.trim(),
+  frameworkType: draft.frameworkType.trim(),
+  targetUser: draft.targetUser.trim(),
+  problem: draft.problem.trim(),
+  intendedOutcome: draft.intendedOutcome.trim(),
+  corePrinciples: parseLines(draft.corePrinciplesText),
+  mustRemainTrue: parseLines(draft.mustRemainTrueText),
+  mvpBoundary: parseLines(draft.mvpBoundaryText),
+  expansionIdeas: parseLines(draft.expansionIdeasText),
+  knownRisks: parseLines(draft.knownRisksText),
+});
+
+const buildProjectLatestRevisionNumbers = (projects: ProjectBlueprint[]): Record<string, number | null> =>
+  projects.reduce<Record<string, number | null>>((accumulator, project) => {
+    accumulator[project.project.id] =
+      blueprintService.listProjectRevisions(project.project.id)[0]?.revisionNumber ?? null;
+    return accumulator;
+  }, {});
 
 const resolveRevisionComparison = (input: {
   projectId: string | null;
@@ -113,6 +158,8 @@ const initializeWorkspace = (): WorkspaceState => {
     selectedProjectId: selectedProject?.project.id ?? null,
     draftBlueprint: selectedProject ? structuredClone(selectedProject) : null,
     createDraft: defaultCreateDraft,
+    guidedIntakeDraft: defaultGuidedIntakeDraft,
+    projectLatestRevisionNumbers: buildProjectLatestRevisionNumbers(projects),
     loadReport,
     workspaceFeedback: null,
     pendingChangeReview: null,
@@ -201,6 +248,7 @@ export const useBlueprintWorkspace = () => {
         projects,
         selectedProjectId: resolvedSelectedProjectId,
         draftBlueprint: selectedProject ? structuredClone(selectedProject) : null,
+        projectLatestRevisionNumbers: buildProjectLatestRevisionNumbers(projects),
         loadReport: loaded.report,
         workspaceFeedback: options?.preferLatestRevision ? current.workspaceFeedback : null,
         pendingChangeReview: null,
@@ -357,6 +405,53 @@ export const useBlueprintWorkspace = () => {
       createDraft,
       workspaceFeedback: null,
     }));
+  };
+
+  const updateGuidedIntakeDraft = (guidedIntakeDraft: GuidedIntakeDraft) => {
+    setState((current) => ({
+      ...current,
+      guidedIntakeDraft,
+      workspaceFeedback: null,
+      error: null,
+    }));
+  };
+
+  const createProjectFromGuidedIntake = (): ProjectBlueprint | null => {
+    if (!state.guidedIntakeDraft.projectName.trim() || !state.guidedIntakeDraft.rawIdea.trim()) {
+      setState((current) => ({
+        ...current,
+        error: "Project name and raw idea are required for guided blueprint creation.",
+      }));
+      return null;
+    }
+
+    try {
+      const created = blueprintService.createProjectFromGuidedIntake(
+        toGuidedIntakeInput(state.guidedIntakeDraft),
+      );
+
+      refreshProjects(created.project.id, { preferLatestRevision: true });
+      setState((current) => ({
+        ...current,
+        draftBlueprint: structuredClone(created),
+        guidedIntakeDraft: defaultGuidedIntakeDraft,
+        workspaceFeedback: {
+          tone: "success",
+          message: "Guided blueprint created and opened in the full workspace.",
+        },
+        pendingChangeReview: null,
+        error: null,
+      }));
+
+      return created;
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        workspaceFeedback: null,
+        error: error instanceof Error ? error.message : "Unable to create guided blueprint.",
+      }));
+      return null;
+    }
   };
 
   const selectQuarantinedPayload = (quarantineId: string | null) => {
@@ -666,6 +761,23 @@ export const useBlueprintWorkspace = () => {
     runStableBoundaryAction("manualCheckpoint", note.trim() || "Manual checkpoint.");
   };
 
+  const completeMissingStructure = () => {
+    if (!state.draftBlueprint) {
+      return;
+    }
+
+    try {
+      const saved = blueprintService.completeMissingStructure(structuredClone(state.draftBlueprint));
+      applyCommittedStableSave(saved, "Missing framework structure completed.");
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        workspaceFeedback: null,
+        error: error instanceof Error ? error.message : "Unable to complete missing framework structure.",
+      }));
+    }
+  };
+
   const confirmPendingChangeReview = () => {
     if (!state.pendingChangeReview) {
       return;
@@ -737,6 +849,8 @@ export const useBlueprintWorkspace = () => {
     selectCompareRevision,
     selectQuarantinedPayload,
     updateCreateDraft,
+    updateGuidedIntakeDraft,
+    createProjectFromGuidedIntake,
     updateDraftBlueprint,
     updateRecoveryDraft,
     importRecoveryDraftFile,
@@ -750,6 +864,7 @@ export const useBlueprintWorkspace = () => {
     clearQuarantinedPayload,
     saveCurrentProject,
     createManualCheckpoint,
+    completeMissingStructure,
     confirmPendingChangeReview,
     dismissPendingChangeReview,
     reextractIntent,

@@ -152,6 +152,35 @@ const passCheck = (
     relatedEntityIds,
   });
 
+const pushPresenceCheck = (input: {
+  checks: ValidationCheck[];
+  code: string;
+  present: boolean;
+  failSeverity: ValidationCheck["severity"];
+  failMessage: string;
+  failRecommendation: string;
+  passMessage: string;
+  relatedEntityIds: string[];
+}) => {
+  if (!input.present) {
+    input.checks.push(
+      createValidationCheck({
+        code: input.code,
+        status: "fail",
+        severity: input.failSeverity,
+        message: input.failMessage,
+        relatedEntityIds: input.relatedEntityIds,
+        recommendation: input.failRecommendation,
+      }),
+    );
+    return;
+  }
+
+  input.checks.push(
+    passCheck(input.code, input.passMessage, "", input.relatedEntityIds),
+  );
+};
+
 export const hasCriticalValidationFailures = (validation: ValidationState): boolean =>
   validation.checks.some((check) => check.status === "fail" && check.severity === "critical");
 
@@ -173,6 +202,108 @@ export const validateBlueprint = (blueprint: ProjectBlueprint): ValidationState 
   } else {
     checks.push(passCheck("OUTCOME_REQUIRED", "Blueprint has at least one intended outcome.", "", [blueprint.project.id]));
   }
+
+  pushPresenceCheck({
+    checks,
+    code: "ACTOR_REQUIRED",
+    present: blueprint.actors.length > 0,
+    failSeverity: "high",
+    failMessage: "Blueprints require at least one actor.",
+    failRecommendation: "Add the primary user, builder, owner, or other actor served by the blueprint.",
+    passMessage: "Blueprint has at least one actor.",
+    relatedEntityIds: [blueprint.project.id],
+  });
+
+  pushPresenceCheck({
+    checks,
+    code: "DOMAIN_REQUIRED",
+    present: blueprint.domains.length > 0,
+    failSeverity: "critical",
+    failMessage: "Blueprints require at least one domain.",
+    failRecommendation: "Add a domain that owns a coherent area of responsibility.",
+    passMessage: "Blueprint has at least one domain.",
+    relatedEntityIds: [blueprint.project.id],
+  });
+
+  pushPresenceCheck({
+    checks,
+    code: "FUNCTION_REQUIRED",
+    present: blueprint.functions.length > 0,
+    failSeverity: "critical",
+    failMessage: "Blueprints require at least one function.",
+    failRecommendation: "Add a function and map it to at least one outcome.",
+    passMessage: "Blueprint has at least one function.",
+    relatedEntityIds: [blueprint.project.id],
+  });
+
+  pushPresenceCheck({
+    checks,
+    code: "COMPONENT_REQUIRED",
+    present: blueprint.components.length > 0,
+    failSeverity: "critical",
+    failMessage: "Blueprints require at least one component.",
+    failRecommendation: "Add a component and map it to at least one function.",
+    passMessage: "Blueprint has at least one component.",
+    relatedEntityIds: [blueprint.project.id],
+  });
+
+  pushPresenceCheck({
+    checks,
+    code: "FLOW_REQUIRED",
+    present: blueprint.flows.length > 0,
+    failSeverity: "high",
+    failMessage: "Blueprints should define at least one flow.",
+    failRecommendation: "Add a flow that shows how actors, functions, and components work together.",
+    passMessage: "Blueprint has at least one flow.",
+    relatedEntityIds: [blueprint.project.id],
+  });
+
+  pushPresenceCheck({
+    checks,
+    code: "PHASE_REQUIRED",
+    present: blueprint.phases.length > 0,
+    failSeverity: "high",
+    failMessage: "Blueprints should define at least one phase.",
+    failRecommendation: "Add an implementation or review phase with exit criteria.",
+    passMessage: "Blueprint has at least one phase.",
+    relatedEntityIds: [blueprint.project.id],
+  });
+
+  pushPresenceCheck({
+    checks,
+    code: "GOVERNANCE_REQUIRED",
+    present: blueprint.invariants.length > 0 && (blueprint.rules.length > 0 || blueprint.guardrails.length > 0),
+    failSeverity: "high",
+    failMessage: "Blueprints should define at least one invariant and at least one rule or guardrail.",
+    failRecommendation: "Add governance that states what must remain true and how scope or risk is protected.",
+    passMessage: "Blueprint has invariant and rule or guardrail governance.",
+    relatedEntityIds: [blueprint.project.id],
+  });
+
+  pushPresenceCheck({
+    checks,
+    code: "MVP_SCOPE_REQUIRED",
+    present:
+      blueprint.mvpScope.summary.trim().length > 0 &&
+      blueprint.mvpScope.successDefinition.trim().length > 0 &&
+      blueprint.mvpScope.items.length > 0,
+    failSeverity: "critical",
+    failMessage: "MVP scope requires a summary, success definition, and at least one scope item.",
+    failRecommendation: "Define the MVP boundary, success definition, and at least one mapped MVP scope item.",
+    passMessage: "MVP scope has a summary, success definition, and at least one item.",
+    relatedEntityIds: [blueprint.mvpScope.id],
+  });
+
+  pushPresenceCheck({
+    checks,
+    code: "DECISION_PRINCIPLE_REQUIRED",
+    present: blueprint.decisionLogic.principles.length > 0,
+    failSeverity: "high",
+    failMessage: "Decision logic should include at least one principle.",
+    failRecommendation: "Add a principle that guides architecture, scope, or governance decisions.",
+    passMessage: "Decision logic has at least one principle.",
+    relatedEntityIds: [blueprint.project.id],
+  });
 
   const functionFailures = blueprint.functions.filter((fn) => fn.outcomeIds.length === 0);
   if (functionFailures.length > 0) {

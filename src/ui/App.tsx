@@ -6,7 +6,9 @@ import { CollectionEditor } from "@/ui/components/CollectionEditor";
 import { IntentOutcomeEditor } from "@/ui/components/IntentOutcomeEditor";
 import { MemoryViewer } from "@/ui/components/MemoryViewer";
 import { BlueprintViewer } from "@/ui/components/BlueprintViewer";
+import { GuidedBlueprintWizard } from "@/ui/components/GuidedBlueprintWizard";
 import { ProjectForm } from "@/ui/components/ProjectForm";
+import { ProjectDashboard } from "@/ui/components/ProjectDashboard";
 import { PersistenceStatusPanel } from "@/ui/components/PersistenceStatusPanel";
 import { QuarantineInspectorPanel } from "@/ui/components/QuarantineInspectorPanel";
 import { RevisionHistoryPanel } from "@/ui/components/RevisionHistoryPanel";
@@ -51,61 +53,108 @@ const updateCurrent = (
 
 const App = () => {
   const workspace = useBlueprintWorkspace();
+  const [activeView, setActiveView] = useState<"dashboard" | "wizard" | "workspace">("dashboard");
   const [saveReason, setSaveReason] = useState("Manual blueprint update.");
   const [checkpointNote, setCheckpointNote] = useState("");
+
+  const openProjectWorkspace = (projectId: string) => {
+    workspace.selectProject(projectId);
+    setActiveView("workspace");
+  };
+
+  const createGuidedBlueprint = () => {
+    const created = workspace.createProjectFromGuidedIntake();
+    if (created) {
+      setActiveView("workspace");
+    }
+  };
 
   return (
     <div className="app-shell">
       <header className="app-header">
         <div>
           <p className="eyebrow">Framework Architect</p>
-          <h1>Project blueprint foundation</h1>
+          <h1>Guided framework builder</h1>
           <p className="muted">
-            Capture the raw idea, keep the governance model explicit, and persist memory from v1.
+            Turn a raw idea into a governed blueprint, then refine every detail in the full editor.
           </p>
         </div>
         <div className="header-controls">
-          <label className="field">
-            <span>Current project</span>
-            <select
-              value={workspace.selectedProjectId ?? ""}
-              onChange={(event) => workspace.selectProject(event.target.value || null)}
-              disabled={workspace.projects.length === 0}
-            >
-              {workspace.projects.map((project) => (
-                <option key={project.project.id} value={project.project.id}>
-                  {project.project.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field field--wide">
-            <span>Save reason</span>
-            <input value={saveReason} onChange={(event) => setSaveReason(event.target.value)} />
-          </label>
           <button
             type="button"
-            disabled={!workspace.draftBlueprint}
-            onClick={() => workspace.saveCurrentProject(saveReason)}
+            className={activeView === "dashboard" ? undefined : "button-secondary"}
+            onClick={() => setActiveView("dashboard")}
           >
-            Save blueprint
+            Projects
           </button>
-          <label className="field field--wide">
-            <span>Checkpoint note</span>
-            <input
-              value={checkpointNote}
-              onChange={(event) => setCheckpointNote(event.target.value)}
-              placeholder="Optional milestone note"
-            />
-          </label>
           <button
             type="button"
             className="button-secondary"
-            disabled={!workspace.draftBlueprint}
-            onClick={() => workspace.createManualCheckpoint(checkpointNote)}
+            onClick={() => setActiveView("wizard")}
           >
-            Create checkpoint
+            New guided blueprint
           </button>
+          <button
+            type="button"
+            className={activeView === "workspace" ? undefined : "button-secondary"}
+            disabled={!workspace.draftBlueprint}
+            onClick={() => setActiveView("workspace")}
+          >
+            Full workspace
+          </button>
+          {activeView === "workspace" ? (
+            <>
+              <label className="field">
+                <span>Current project</span>
+                <select
+                  value={workspace.selectedProjectId ?? ""}
+                  onChange={(event) => workspace.selectProject(event.target.value || null)}
+                  disabled={workspace.projects.length === 0}
+                >
+                  {workspace.projects.map((project) => (
+                    <option key={project.project.id} value={project.project.id}>
+                      {project.project.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field field--wide">
+                <span>Save reason</span>
+                <input value={saveReason} onChange={(event) => setSaveReason(event.target.value)} />
+              </label>
+              <button
+                type="button"
+                disabled={!workspace.draftBlueprint}
+                onClick={() => workspace.saveCurrentProject(saveReason)}
+              >
+                Save blueprint
+              </button>
+              <button
+                type="button"
+                className="button-secondary"
+                disabled={!workspace.draftBlueprint}
+                onClick={workspace.completeMissingStructure}
+              >
+                Complete Missing Structure
+              </button>
+              <label className="field field--wide">
+                <span>Checkpoint note</span>
+                <input
+                  value={checkpointNote}
+                  onChange={(event) => setCheckpointNote(event.target.value)}
+                  placeholder="Optional milestone note"
+                />
+              </label>
+              <button
+                type="button"
+                className="button-secondary"
+                disabled={!workspace.draftBlueprint}
+                onClick={() => workspace.createManualCheckpoint(checkpointNote)}
+              >
+                Create checkpoint
+              </button>
+            </>
+          ) : null}
         </div>
       </header>
 
@@ -127,6 +176,30 @@ const App = () => {
         />
       ) : null}
 
+      {activeView === "dashboard" ? (
+        <main>
+          <ProjectDashboard
+            projects={workspace.projects}
+            selectedProjectId={workspace.selectedProjectId}
+            latestRevisionNumbers={workspace.projectLatestRevisionNumbers}
+            onOpenProject={openProjectWorkspace}
+            onCreateGuidedBlueprint={() => setActiveView("wizard")}
+          />
+        </main>
+      ) : null}
+
+      {activeView === "wizard" ? (
+        <main>
+          <GuidedBlueprintWizard
+            draft={workspace.guidedIntakeDraft}
+            onDraftChange={workspace.updateGuidedIntakeDraft}
+            onCreate={createGuidedBlueprint}
+            onCancel={() => setActiveView("dashboard")}
+          />
+        </main>
+      ) : null}
+
+      {activeView === "workspace" ? (
       <main className="workspace-grid">
         <div className="workspace-grid__editor">
           <ProjectForm
@@ -542,6 +615,7 @@ const App = () => {
           )}
         </div>
       </main>
+      ) : null}
     </div>
   );
 };

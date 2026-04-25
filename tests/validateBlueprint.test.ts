@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { BlueprintService } from "@/application/services/blueprintService";
 import { validateBlueprint } from "@/application/validation/validateBlueprint";
 import {
   createComponent,
@@ -12,9 +13,44 @@ import {
   createProjectFunction,
   createRule,
 } from "@/domain/defaults";
+import { LocalProjectRepository } from "@/persistence/localProjectRepository";
+import type { StorageLike } from "@/persistence/projectRepository";
 import { createSeedBlueprint } from "@/seed/exampleBlueprint";
 
+const createTestStorage = (): StorageLike => {
+  const state = new Map<string, string>();
+
+  return {
+    getItem: (key) => state.get(key) ?? null,
+    setItem: (key, value) => {
+      state.set(key, value);
+    },
+    removeItem: (key) => {
+      state.delete(key);
+    },
+  };
+};
+
 describe("validateBlueprint", () => {
+  it("does not treat a raw-idea-only project as build-ready", () => {
+    const service = new BlueprintService(new LocalProjectRepository(createTestStorage()));
+    const created = service.createProject({
+      name: "Raw Idea Only",
+      rawIdea: "Build a tiny tool from a raw idea before the architecture is filled in.",
+    });
+
+    expect(created.validation.buildReady).toBe(false);
+    expect(
+      created.validation.checks.some((check) => check.code === "FUNCTION_REQUIRED" && check.status === "fail"),
+    ).toBe(true);
+    expect(
+      created.validation.checks.some((check) => check.code === "COMPONENT_REQUIRED" && check.status === "fail"),
+    ).toBe(true);
+    expect(
+      created.validation.checks.some((check) => check.code === "MVP_SCOPE_REQUIRED" && check.status === "fail"),
+    ).toBe(true);
+  });
+
   it("flags unmapped functions and components as critical failures", () => {
     const project = createProject({
       name: "Validation Example",
@@ -80,5 +116,41 @@ describe("validateBlueprint", () => {
   it("returns a build-ready validation state for the seed blueprint", () => {
     const seed = createSeedBlueprint();
     expect(seed.validation.buildReady).toBe(true);
+  });
+
+  it("fails FUNCTION_REQUIRED when a blueprint has no functions", () => {
+    const seed = createSeedBlueprint();
+    seed.functions = [];
+
+    const validation = validateBlueprint(seed);
+
+    expect(validation.buildReady).toBe(false);
+    expect(validation.checks.some((check) => check.code === "FUNCTION_REQUIRED" && check.status === "fail")).toBe(
+      true,
+    );
+  });
+
+  it("fails COMPONENT_REQUIRED when a blueprint has no components", () => {
+    const seed = createSeedBlueprint();
+    seed.components = [];
+
+    const validation = validateBlueprint(seed);
+
+    expect(validation.buildReady).toBe(false);
+    expect(validation.checks.some((check) => check.code === "COMPONENT_REQUIRED" && check.status === "fail")).toBe(
+      true,
+    );
+  });
+
+  it("fails MVP_SCOPE_REQUIRED when MVP scope items are missing", () => {
+    const seed = createSeedBlueprint();
+    seed.mvpScope.items = [];
+
+    const validation = validateBlueprint(seed);
+
+    expect(validation.buildReady).toBe(false);
+    expect(validation.checks.some((check) => check.code === "MVP_SCOPE_REQUIRED" && check.status === "fail")).toBe(
+      true,
+    );
   });
 });

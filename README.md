@@ -22,6 +22,8 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - Versioned storage migration with quarantine for unrecoverable payloads
 - First-class per-project revision history with structural diffs
 - Validation rules for structural governance checks
+- Guided intake that turns structured project answers into a populated governed blueprint
+- Deterministic missing-structure completion for raw-idea projects
 - Minimal UI for project creation, intent/outcome editing, blueprint viewing, memory viewing, and validation review
 - A seed example blueprint for inspection and iteration
 
@@ -81,6 +83,27 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - Blocker-level review currently blocks build-ready promotion, but still allows a confirmed save to persist as `validated` so drafts do not get trapped
 - No-op saves do not open review and do not create duplicate revisions
 - Change review is separate from schema validation, separate from revision history, and separate from quarantine recovery
+
+## Guided Blueprint Creation
+- The guided builder collects raw idea, project name, framework type, target user, problem, intended outcome, principles, non-negotiables, MVP boundary, expansion ideas, and known risks
+- `composeBlueprintFromGuidedIntake(...)` converts those answers into a normal `ProjectBlueprint`
+- The composer uses the existing domain factory functions and creates connected outcomes, actors, domains, functions, components, flows, governance, scope, decisions, and failure modes
+- Generated MVP and expansion items reference valid outcome/function/component IDs so schema validation and relational validation remain meaningful
+- Guided creation still saves through `BlueprintService`, so schema parsing, validation, stable save review, local persistence, memory snapshots, and revision history are preserved
+
+## Deterministic Completion Engine
+- Raw-idea project creation can intentionally start small with project, intent, and outcome
+- `completeBlueprintStructure(...)` fills missing blueprint sections without replacing existing user-authored entities
+- Completion is conservative: empty collections are populated, empty MVP/expansion summaries are filled, and existing content is left in place
+- Generated structure includes actors, domains, functions, components, flows, dependencies, rules, invariants, guardrails, phases, MVP scope, expansion scope, decision records, and failure modes
+- `BlueprintService.completeMissingStructure(...)` runs completion and then saves through the same stable save path with the reason `Completed missing framework structure.`
+- The UI exposes this as `Complete Missing Structure` in the full workspace near save and checkpoint actions
+
+## Structural Completeness Validation
+- Validation no longer treats empty collections as build-ready just because relational checks pass vacuously
+- Missing domains, functions, components, or MVP scope produce critical failures and block `buildReady`
+- Missing actors, flows, phases, governance, and decision principles produce high-severity completeness failures
+- Existing relational validation remains intact: function-outcome mapping, component-function mapping, dependency/reference checks, governance scope checks, and MVP/expansion separation still run
 
 ## Governance Policy Metadata
 - Rules and invariants carry explicit `policy` metadata in the domain schema

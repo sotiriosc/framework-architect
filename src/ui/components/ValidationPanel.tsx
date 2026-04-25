@@ -1,10 +1,37 @@
-import type { ValidationState } from "@/domain/models";
+import type { ValidationCheck, ValidationState } from "@/domain/models";
 import { SectionCard } from "@/ui/components/SectionCard";
 
 type ValidationPanelProps = {
   validation: ValidationState;
   projectStatus: string;
 };
+
+const groupChecks = (checks: ValidationCheck[]) => ({
+  blockers: checks.filter((check) => check.status === "fail"),
+  warnings: checks.filter((check) => check.status === "warning"),
+  passes: checks.filter((check) => check.status === "pass"),
+});
+
+const renderCheckGroup = (title: string, checks: ValidationCheck[]) => (
+  <div className="readiness-group">
+    <div className="readiness-group__header">
+      <strong>{title}</strong>
+      <span>{checks.length}</span>
+    </div>
+    {checks.length === 0 ? (
+      <p className="muted">None</p>
+    ) : (
+      <ul className="compact-list">
+        {checks.map((check) => (
+          <li key={check.id}>
+            <span>{check.code}</span>
+            <small>{check.message}</small>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+);
 
 export const ValidationPanel = ({ validation, projectStatus }: ValidationPanelProps) => {
   const summary = validation.checks.reduce(
@@ -14,9 +41,36 @@ export const ValidationPanel = ({ validation, projectStatus }: ValidationPanelPr
     },
     { pass: 0, warning: 0, fail: 0 },
   );
+  const grouped = groupChecks(validation.checks);
+  const nextRecommendedFix = grouped.blockers[0] ?? grouped.warnings[0] ?? null;
 
   return (
     <SectionCard title="Validation panel" description="Structural checks stay centralized outside the UI layer.">
+      <div className={`readiness-callout${validation.buildReady ? " readiness-callout--ready" : ""}`}>
+        <div>
+          <span className="eyebrow">Readiness summary</span>
+          <strong>
+            {validation.buildReady
+              ? "Build-ready by validation"
+              : `${grouped.blockers.length} blocker${grouped.blockers.length === 1 ? "" : "s"} need attention`}
+          </strong>
+          <p>
+            {validation.buildReady
+              ? "The blueprint has connected outcomes, functions, components, scope, and governance references."
+              : "Resolve blocker checks before treating this blueprint as ready for implementation."}
+          </p>
+        </div>
+        <div>
+          <span className="eyebrow">Next recommended fix</span>
+          <strong>{nextRecommendedFix?.code ?? "No fixes pending"}</strong>
+          {nextRecommendedFix ? (
+            <p>{nextRecommendedFix.recommendation || nextRecommendedFix.message}</p>
+          ) : (
+            <p>Keep using stable review when making structural changes.</p>
+          )}
+        </div>
+      </div>
+
       <div className="validation-summary">
         <div>
           <span className="eyebrow">Current status</span>
@@ -34,22 +88,31 @@ export const ValidationPanel = ({ validation, projectStatus }: ValidationPanelPr
         </div>
       </div>
 
-      <ul className="stacked-list">
-        {validation.checks.map((check) => (
-          <li key={check.id} className={`stacked-list__item stacked-list__item--${check.status}`}>
-            <div className="tag-row">
-              <span>{check.code}</span>
-              <span>{check.status}</span>
-              <span>{check.severity}</span>
-            </div>
-            <strong>{check.message}</strong>
-            {check.recommendation ? <p>{check.recommendation}</p> : null}
-            {check.relatedEntityIds.length > 0 ? (
-              <p className="muted">related: {check.relatedEntityIds.join(", ")}</p>
-            ) : null}
-          </li>
-        ))}
-      </ul>
+      <div className="readiness-grid">
+        {renderCheckGroup("Blockers", grouped.blockers)}
+        {renderCheckGroup("Warnings", grouped.warnings)}
+        {renderCheckGroup("Passes", grouped.passes)}
+      </div>
+
+      <details className="raw-validation" open>
+        <summary>Raw validation checks</summary>
+        <ul className="stacked-list">
+          {validation.checks.map((check) => (
+            <li key={check.id} className={`stacked-list__item stacked-list__item--${check.status}`}>
+              <div className="tag-row">
+                <span>{check.code}</span>
+                <span>{check.status}</span>
+                <span>{check.severity}</span>
+              </div>
+              <strong>{check.message}</strong>
+              {check.recommendation ? <p>{check.recommendation}</p> : null}
+              {check.relatedEntityIds.length > 0 ? (
+                <p className="muted">related: {check.relatedEntityIds.join(", ")}</p>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      </details>
     </SectionCard>
   );
 };

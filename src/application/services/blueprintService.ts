@@ -37,6 +37,11 @@ import type {
 import { QuarantineExportDocumentSchema, QuarantinedPayloadSchema } from "@/persistence/types";
 import { ProjectBlueprintSchema } from "@/schema";
 import { createSeedBlueprint } from "@/seed/exampleBlueprint";
+import {
+  composeBlueprintFromGuidedIntake,
+  type GuidedIntakeInput,
+} from "@/application/intake/composeBlueprintFromGuidedIntake";
+import { completeBlueprintStructure } from "@/application/intake/completeBlueprintStructure";
 import { extractIntentFromRawIdea } from "@/application/intake/extractIntent";
 import { validateBlueprint } from "@/application/validation/validateBlueprint";
 
@@ -408,6 +413,16 @@ export class BlueprintService {
 
     const blueprint = createEmptyBlueprint(project, intent, outcome);
     return this.saveBlueprint(blueprint, "Initial project created from raw idea.");
+  }
+
+  createProjectFromGuidedIntake(input: GuidedIntakeInput): ProjectBlueprint {
+    const blueprint = composeBlueprintFromGuidedIntake(input);
+    return this.saveBlueprint(blueprint, "Initial project created from guided intake.");
+  }
+
+  completeMissingStructure(project: ProjectBlueprint): ProjectBlueprint {
+    const completed = completeBlueprintStructure(project);
+    return this.saveBlueprint(completed, "Completed missing framework structure.");
   }
 
   listQuarantinedPayloads(): QuarantinedPayload[] {

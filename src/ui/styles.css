@@ -144,7 +144,14 @@ textarea {
 .toolbar {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
   margin-top: 1rem;
+}
+
+.toolbar--split {
+  justify-content: space-between;
+  flex-wrap: wrap;
 }
 
 .button-row {
@@ -269,6 +276,124 @@ textarea {
   margin-top: 0.25rem;
 }
 
+.dashboard-stack,
+.guided-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.project-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.project-card {
+  border: 1px solid #d7d6ce;
+  background: #fffdf9;
+  padding: 1rem;
+}
+
+.project-card--selected {
+  border-color: #17212b;
+}
+
+.project-card__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+}
+
+.project-card__header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.project-card__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.project-card__stats strong {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.readiness-callout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  border: 1px solid #d7a24f;
+  background: #fff8ea;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.readiness-callout--ready {
+  border-color: #6ea877;
+  background: #eef8ef;
+}
+
+.readiness-callout strong,
+.readiness-group strong {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.readiness-callout p,
+.readiness-group p {
+  margin: 0.35rem 0 0;
+}
+
+.readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.readiness-group {
+  border: 1px solid #e3e0d7;
+  background: #fffdf9;
+  padding: 0.75rem;
+}
+
+.readiness-group__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.compact-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.compact-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.compact-list small {
+  color: #5f6972;
+}
+
+.raw-validation summary {
+  cursor: pointer;
+  margin-bottom: 0.75rem;
+}
+
 .memory-grid {
   display: grid;
   gap: 1rem;
@@ -312,7 +437,10 @@ textarea {
 
 @media (max-width: 720px) {
   .form-grid,
-  .validation-summary {
+  .validation-summary,
+  .project-card__stats,
+  .readiness-callout,
+  .readiness-grid {
     grid-template-columns: 1fr;
   }
 }

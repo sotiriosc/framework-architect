@@ -34,6 +34,7 @@ V1 includes three persistent memory layers:
 
 ## Validation Rules
 The validation engine enforces:
+- structural completeness for actors, domains, functions, components, flows, phases, governance, MVP scope, and decision principles
 - every function maps to at least one outcome
 - every component maps to at least one function
 - every dependency references valid entities
@@ -41,6 +42,33 @@ The validation engine enforces:
 - every invariant is global or clearly scoped
 - every MVP item is distinct from expansion scope
 - build-ready status is blocked by critical validation failures
+
+Completeness checks are intentionally separate from relational checks. Empty collections are no longer allowed to pass as ready simply because there are no broken references to inspect.
+
+## Guided Intake Composition
+Guided intake is an application-layer producer of normal blueprints. It does not introduce a second project model.
+
+- `composeBlueprintFromGuidedIntake(...)` accepts structured intake fields and returns a `ProjectBlueprint`
+- It uses the same factory functions from `src/domain/defaults.ts` as the rest of the app
+- It creates connected outcomes, actors, domains, functions, components, flow, governance, phases, MVP and expansion scope, decision records, and failure modes
+- It runs `validateBlueprint(...)` before returning
+- `BlueprintService.createProjectFromGuidedIntake(...)` persists the result through the standard stable save path
+
+Because guided output is saved through `BlueprintService`, it inherits schema parsing, stable change review, local-first persistence, memory snapshot creation, and revision recording.
+
+## Completion Engine
+The completion engine is for projects that started from the raw-idea flow and therefore may only contain project, intent, and an initial outcome.
+
+- `completeBlueprintStructure(...)` clones the input blueprint
+- It checks which blueprint sections are empty or incomplete
+- It fills missing sections conservatively using deterministic defaults
+- It preserves existing user-authored entities instead of replacing them
+- It connects generated entities with valid IDs
+- It runs `validateBlueprint(...)` before returning
+
+The generated structure includes a primary and secondary actor, core domains, core functions, mapped components, a core flow, internal dependencies, rules, invariants, guardrails, phases, MVP scope items, expansion items, decision records, and failure modes.
+
+`BlueprintService.completeMissingStructure(...)` wraps this engine and then calls the existing stable save path with the reason `Completed missing framework structure.` That means completion still participates in change review, memory capture, revision history, and local persistence rather than writing around them.
 
 ## Persistence Strategy
 The app uses a repository interface with a localStorage adapter. That keeps persistence replaceable so a future database layer can be added without rewriting domain, schema, or validation code.
