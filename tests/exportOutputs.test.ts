@@ -74,6 +74,7 @@ describe("blueprint exports", () => {
     expect(markdown).toContain("## Decision Records");
     expect(markdown).toContain("## Validation Summary");
     expect(markdown).toContain("## Quality Review");
+    expect(markdown).toContain("## Foresight Summary");
   });
 
   it("exports a Codex prompt with governance and MVP scope", () => {
@@ -86,6 +87,7 @@ describe("blueprint exports", () => {
     expect(prompt).toContain(blueprint.invariants[0]?.name);
     expect(prompt).toContain("## MVP Scope (Build Now)");
     expect(prompt).toContain(blueprint.mvpScope.items[0]?.name);
+    expect(prompt).toContain("## Recommended Future Work / Do Not Build Yet");
     expect(prompt).toContain("Do not bypass governance constraints");
   });
 

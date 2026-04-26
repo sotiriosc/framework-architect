@@ -1,9 +1,11 @@
 import {
   createEmptyBlueprint,
+  createDecisionRecord,
   createIntent,
   createMemoryEntry,
   createOutcome,
   createProject,
+  createScopeItem,
 } from "@/domain/defaults";
 import type { MemoryState, ProjectBlueprint } from "@/domain/models";
 import {
@@ -47,9 +49,68 @@ import {
   applyBlueprintImprovementFix,
   applySafeBlueprintImprovementFixes,
 } from "@/application/review/applyBlueprintImprovementFixes";
+import {
+  buildBlueprintForesight,
+  listBlueprintForesightItems,
+  type BlueprintForesightItem,
+} from "@/application/review/buildBlueprintForesight";
 import { validateBlueprint } from "@/application/validation/validateBlueprint";
 
 const cloneBlueprint = (blueprint: ProjectBlueprint): ProjectBlueprint => structuredClone(blueprint);
+
+const appendUnique = (current: string[], additions: string[]): string[] => {
+  const seen = new Set(current);
+  const next = [...current];
+
+  additions.forEach((addition) => {
+    if (!addition || seen.has(addition)) {
+      return;
+    }
+
+    seen.add(addition);
+    next.push(addition);
+  });
+
+  return next;
+};
+
+const collectBlueprintEntityIds = (blueprint: ProjectBlueprint): Set<string> =>
+  new Set([
+    blueprint.project.id,
+    blueprint.intent.id,
+    ...blueprint.outcomes.map((item) => item.id),
+    ...blueprint.actors.map((item) => item.id),
+    ...blueprint.constraints.map((item) => item.id),
+    ...blueprint.domains.map((item) => item.id),
+    ...blueprint.functions.map((item) => item.id),
+    ...blueprint.components.map((item) => item.id),
+    ...blueprint.flows.map((item) => item.id),
+    ...blueprint.dependencies.map((item) => item.id),
+    ...blueprint.rules.map((item) => item.id),
+    ...blueprint.invariants.map((item) => item.id),
+    ...blueprint.guardrails.map((item) => item.id),
+    ...blueprint.phases.map((item) => item.id),
+    blueprint.mvpScope.id,
+    blueprint.expansionScope.id,
+    ...blueprint.mvpScope.items.map((item) => item.id),
+    ...blueprint.expansionScope.items.map((item) => item.id),
+    ...blueprint.decisionLogic.records.map((item) => item.id),
+    ...blueprint.failureModes.map((item) => item.id),
+  ]);
+
+const findForesightItem = (
+  blueprint: ProjectBlueprint,
+  foresightItemId: string,
+): BlueprintForesightItem => {
+  const foresight = buildBlueprintForesight(blueprint);
+  const item = listBlueprintForesightItems(foresight).find((candidate) => candidate.id === foresightItemId);
+
+  if (!item) {
+    throw new Error(`Unknown blueprint foresight item: ${foresightItemId}`);
+  }
+
+  return item;
+};
 
 const appendMemorySnapshot = (
   previousMemory: MemoryState,
@@ -458,6 +519,81 @@ export class BlueprintService {
     const fixed = applyBlueprintImprovementFix(project, fixId);
     fixed.validation = validateBlueprint(fixed);
     return this.saveBlueprint(fixed, `Applied blueprint quality fix: ${fixId}`);
+  }
+
+  addForesightItemToExpansion(project: ProjectBlueprint, foresightItemId: string): ProjectBlueprint {
+    const next = cloneBlueprint(project);
+    const item = findForesightItem(next, foresightItemId);
+    const validIds = collectBlueprintEntityIds(next);
+    const relatedIds = [...item.prerequisiteEntityIds, ...item.relatedEntityIds].filter((id) => validIds.has(id));
+    const relatedFunctionIds = relatedIds.filter((id) => next.functions.some((fn) => fn.id === id));
+    const relatedComponentIds = relatedIds.filter((id) => next.components.some((component) => component.id === id));
+    const relatedOutcomeIds = relatedIds.filter((id) => next.outcomes.some((outcome) => outcome.id === id));
+    const scopeItem = createScopeItem(item.title);
+
+    scopeItem.description = item.description;
+    scopeItem.rationale = `${item.whyItMatters} ${item.whyNowOrLater}`;
+    scopeItem.outcomeIds = relatedOutcomeIds.length > 0
+      ? relatedOutcomeIds
+      : next.outcomes.slice(0, 1).map((outcome) => outcome.id);
+    scopeItem.functionIds = relatedFunctionIds;
+    scopeItem.componentIds = relatedComponentIds;
+
+    if (
+      scopeItem.outcomeIds.length === 0 &&
+      scopeItem.functionIds.length === 0 &&
+      scopeItem.componentIds.length === 0
+    ) {
+      scopeItem.outcomeIds = next.outcomes.slice(0, 1).map((outcome) => outcome.id);
+      scopeItem.functionIds = next.functions.slice(0, 1).map((fn) => fn.id);
+      scopeItem.componentIds = next.components.slice(0, 1).map((component) => component.id);
+    }
+
+    next.expansionScope.summary =
+      next.expansionScope.summary.trim() ||
+      "Future opportunities that should stay separate from the MVP until intentionally accepted.";
+    next.expansionScope.futureSignals = appendUnique(next.expansionScope.futureSignals, [
+      `Foresight: ${item.title}`,
+    ]);
+    next.expansionScope.items = [...next.expansionScope.items, scopeItem];
+    next.validation = validateBlueprint(next);
+
+    return this.saveBlueprint(next, `Added foresight item to expansion: ${item.title}.`);
+  }
+
+  addForesightItemAsDecision(project: ProjectBlueprint, foresightItemId: string): ProjectBlueprint {
+    const next = cloneBlueprint(project);
+    const item = findForesightItem(next, foresightItemId);
+    const validIds = collectBlueprintEntityIds(next);
+    const relatedEntityIds = appendUnique(
+      [...item.prerequisiteEntityIds, ...item.relatedEntityIds].filter((id) => validIds.has(id)),
+      [next.project.id],
+    );
+    const decision = createDecisionRecord();
+
+    decision.title = `Foresight: ${item.title}`;
+    decision.summary = item.description;
+    decision.reason = `${item.whyItMatters} ${item.whyNowOrLater}`;
+    decision.status = "proposed";
+    decision.relatedEntityIds = relatedEntityIds;
+    decision.rejectedOptions =
+      item.horizon === "not-yet"
+        ? ["Build this before prerequisites are proven"]
+        : ["Ignore the foresight signal without review"];
+    decision.invariantConflicts = item.category === "governance" || item.category === "user-trust"
+      ? next.invariants.slice(0, 3).map((invariant) => invariant.name)
+      : [];
+    decision.scopeDecision =
+      item.horizon === "later" || item.horizon === "not-yet"
+        ? "expansion"
+        : item.category === "governance" || item.category === "user-trust"
+          ? "governance"
+          : "architecture";
+
+    next.decisionLogic.records = [...next.decisionLogic.records, decision];
+    next.validation = validateBlueprint(next);
+
+    return this.saveBlueprint(next, `Recorded foresight decision: ${item.title}.`);
   }
 
   listQuarantinedPayloads(): QuarantinedPayload[] {

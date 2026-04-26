@@ -4,9 +4,9 @@
 Framework Architect is intentionally local-first and architecture-first. The app captures a project idea as a governed blueprint and keeps governance concepts explicit instead of burying them in helper code.
 
 ## Current V1 Product Loop
-Idea -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Export.
+Idea -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Export.
 
-The primary UI path follows that order: dashboard and guided intake create a populated blueprint, the workspace shows structural validation first, quality review and safe fixes second, exports third, and revision history after the current working state. Persistence status, quarantine recovery, memory snapshots, and raw blueprint JSON remain available as advanced diagnostics rather than the default read path.
+The primary UI path follows that order: dashboard and guided intake create a populated blueprint, the workspace shows structural validation first, quality review and safe fixes second, foresight third, exports after that, and revision history after the current working state. Persistence status, quarantine recovery, memory snapshots, and raw blueprint JSON remain available as advanced diagnostics rather than the default read path.
 
 ## Top-Level Blueprint Contract
 The blueprint document contains:
@@ -96,7 +96,9 @@ Export generation is application-layer formatting on top of the current `Project
 - `exportBlueprintJson(...)` serializes the current schema-valid blueprint as formatted JSON
 - `exportMvpChecklist(...)` creates a checklist from MVP items, phases, functions, and validation blockers
 
-The UI download panel only turns those local strings into files with project-slug filenames. Export behavior remains separate from validation, stable save review, memory, revision history, and quarantine recovery.
+Markdown and Codex exports can include concise quality and foresight summaries, but they still only serialize the current local state. The MVP checklist remains scoped to MVP work and does not include later or not-yet foresight items.
+
+The UI download panel only turns those local strings into files with project-slug filenames. Export behavior remains separate from validation, stable save review, memory, revision history, foresight actions, and quarantine recovery.
 
 ## Quality Review And Improvement Actions
 Quality review is deterministic application logic above validation. It does not change the schema and does not decide build-ready status.
@@ -107,6 +109,20 @@ Quality review is deterministic application logic above validation. It does not 
 - Safe fixes may rename generic invariants, fill empty descriptions, add mitigations, add or remap export surfaces, separate duplicate expansion names, add thin template structure, or add high-risk guardrails
 - Safe fixes are applied through `BlueprintService`, then parsed, validated, reviewed, saved, snapshotted in memory, and recorded in revision history
 - Manual-review and risky fixes are displayed but not auto-applied because they may require product judgment or could overwrite user-authored structure
+
+## Strategic Foresight And Opportunity Radar
+Foresight is deterministic application logic above validation and quality review. It anticipates useful next moves without changing the blueprint by default.
+
+- `buildBlueprintForesight(...)` returns strategic position, now/next/later/not-yet items, hidden opportunities, risks, experiments, metrics, tests, and Codex task seeds
+- It uses only the current blueprint, detected template, validation state, quality review, and improvement plan
+- Template-specific patterns shape suggestions without changing the `ProjectBlueprint` schema
+- Praxis Feature foresight emphasizes regression tests, do-not-break instructions, isolated implementation boundaries, user trust, and safety guardrails
+- Software App foresight emphasizes onboarding, empty/error states, persistence audit, smoke tests, analytics, and local-first account deferral
+- Business System, Coaching System, Content / Brand, Book / White Paper, SOP / Workflow, and Generic Framework each get matching deterministic opportunity and risk patterns
+- Suggestions are advisory unless the user selects a single action
+- `BlueprintService.addForesightItemToExpansion(...)` appends one selected item to expansion scope through the stable save path
+- `BlueprintService.addForesightItemAsDecision(...)` records one selected item as a decision record through the stable save path
+- Both service actions parse, validate, review, persist, snapshot memory, and record revision history
 
 ## Persistence Strategy
 The app uses a repository interface with a localStorage adapter. That keeps persistence replaceable so a future database layer can be added without rewriting domain, schema, or validation code.

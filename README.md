@@ -17,9 +17,9 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - expansion scope
 
 ## Current V1 Product Loop
-Idea -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Export.
+Idea -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Export.
 
-The default path is guided and populated: users choose or infer a template, generate a governed blueprint, review structural validation, inspect quality and next-best fixes, apply deterministic safe fixes when useful, then export implementation artifacts. The full editor remains available for manual architecture work, including the advanced empty-blueprint path.
+The default path is guided and populated: users choose or infer a template, generate a governed blueprint, review structural validation, inspect quality and next-best fixes, apply deterministic safe fixes when useful, review strategic foresight suggestions, then export implementation artifacts. The full editor remains available for manual architecture work, including the advanced empty-blueprint path.
 
 ## V1 Includes
 - Strong TypeScript domain types and Zod schemas
@@ -33,7 +33,8 @@ The default path is guided and populated: users choose or infer a template, gene
 - Relation-aware editing that shows human-readable entity names while preserving stored IDs
 - Export outputs for Markdown architecture briefs, Codex prompts, JSON, and MVP checklists
 - Blueprint quality review and deterministic safe quality fixes
-- Minimal UI for dashboard, guided creation, full editing, validation, quality review, exports, revision history, memory, and quarantine recovery
+- Strategic foresight and opportunity radar for future work, risks, experiments, metrics, tests, and Codex task seeds
+- Minimal UI for dashboard, guided creation, full editing, validation, quality review, foresight, exports, revision history, memory, and quarantine recovery
 - A seed example blueprint for inspection and iteration
 
 ## Architecture Layers
@@ -125,8 +126,8 @@ The default path is guided and populated: users choose or infer a template, gene
 
 ## Export Outputs
 - Completed blueprints can be exported locally from the workspace without a backend
-- Markdown export creates a full architecture brief with intent, structure, governance, scope, decisions, risks, and validation summary
-- Codex prompt export turns the blueprint into an implementation prompt that preserves rules, invariants, MVP scope, validation expectations, and template-specific implementation emphasis
+- Markdown export creates a full architecture brief with intent, structure, governance, scope, decisions, risks, validation, quality, and foresight summary
+- Codex prompt export turns the blueprint into an implementation prompt that preserves rules, invariants, MVP scope, validation expectations, template-specific implementation emphasis, and do-not-build-yet future work
 - JSON export writes the current `ProjectBlueprint` as formatted JSON
 - MVP checklist export creates a practical checklist from MVP scope items, phases, required functions, and validation blockers
 
@@ -136,6 +137,14 @@ The default path is guided and populated: users choose or infer a template, gene
 - Safe quality fixes are deterministic local actions that add or clarify without deleting user-authored content
 - Manual-review and risky fixes are surfaced for judgment but are not auto-applied
 - Safe fixes still save through `BlueprintService`, so validation, stable change review, memory snapshots, and revision history remain intact
+
+## Strategic Foresight And Opportunity Radar
+- Foresight answers what the blueprint should watch, test, defer, or prepare next
+- It is deterministic and uses only the current blueprint, detected template, validation state, quality review, and improvement plan
+- Foresight suggestions are advisory by default; the engine does not silently mutate the blueprint
+- Selected foresight items can be added to expansion scope or recorded as decision records through `BlueprintService`
+- Those selected actions still validate, pass through stable save review, update memory, and record revision history
+- Template-specific patterns keep suggestions practical: Praxis features emphasize regression tests and do-not-break guidance, software apps emphasize onboarding/persistence/testing, business systems emphasize offer/customer/delivery/revenue validation, and other templates get matching next-step signals
 
 ## Governance Policy Metadata
 - Rules and invariants carry explicit `policy` metadata in the domain schema

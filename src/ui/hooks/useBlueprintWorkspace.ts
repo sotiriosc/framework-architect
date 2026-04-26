@@ -847,6 +847,52 @@ export const useBlueprintWorkspace = () => {
     }
   };
 
+  const addForesightItemToExpansion = (foresightItemId: string) => {
+    if (!state.draftBlueprint) {
+      return;
+    }
+
+    try {
+      const saved = blueprintService.addForesightItemToExpansion(
+        structuredClone(state.draftBlueprint),
+        foresightItemId,
+      );
+      applyCommittedStableSave(saved, "Foresight item added to expansion scope.");
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        workspaceFeedback: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : `Unable to add foresight item to expansion: ${foresightItemId}.`,
+      }));
+    }
+  };
+
+  const addForesightItemAsDecision = (foresightItemId: string) => {
+    if (!state.draftBlueprint) {
+      return;
+    }
+
+    try {
+      const saved = blueprintService.addForesightItemAsDecision(
+        structuredClone(state.draftBlueprint),
+        foresightItemId,
+      );
+      applyCommittedStableSave(saved, "Foresight item recorded as a decision.");
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        workspaceFeedback: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : `Unable to record foresight decision: ${foresightItemId}.`,
+      }));
+    }
+  };
+
   const confirmPendingChangeReview = () => {
     if (!state.pendingChangeReview) {
       return;
@@ -937,6 +983,8 @@ export const useBlueprintWorkspace = () => {
     completeMissingStructure,
     applySafeQualityFixes,
     applyQualityFix,
+    addForesightItemToExpansion,
+    addForesightItemAsDecision,
     confirmPendingChangeReview,
     dismissPendingChangeReview,
     reextractIntent,

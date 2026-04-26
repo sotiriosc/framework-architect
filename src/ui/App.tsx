@@ -10,6 +10,7 @@ import { ExportPanel } from "@/ui/components/ExportPanel";
 import { GuidedBlueprintWizard } from "@/ui/components/GuidedBlueprintWizard";
 import { ProjectForm } from "@/ui/components/ProjectForm";
 import { ProjectDashboard } from "@/ui/components/ProjectDashboard";
+import { BlueprintForesightPanel } from "@/ui/components/BlueprintForesightPanel";
 import { BlueprintQualityPanel } from "@/ui/components/BlueprintQualityPanel";
 import { PersistenceStatusPanel } from "@/ui/components/PersistenceStatusPanel";
 import { QuarantineInspectorPanel } from "@/ui/components/QuarantineInspectorPanel";
@@ -627,6 +628,12 @@ const App = () => {
                 relationOptions={relationOptions}
                 onApplySafeFixes={workspace.applySafeQualityFixes}
                 onApplyFix={workspace.applyQualityFix}
+              />
+              <BlueprintForesightPanel
+                blueprint={workspace.draftBlueprint}
+                relationOptions={relationOptions}
+                onAddToExpansion={workspace.addForesightItemToExpansion}
+                onAddAsDecision={workspace.addForesightItemAsDecision}
               />
               <ExportPanel blueprint={workspace.draftBlueprint} />
               <RevisionHistoryPanel

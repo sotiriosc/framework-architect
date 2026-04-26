@@ -8,13 +8,17 @@ Use this checklist before deeper manual testing or release packaging.
 - [ ] Confirm the generated project opens in the full workspace.
 - [ ] Confirm the project card shows the Praxis Feature template, validation summary, build-ready state, and latest revision.
 
-## Validation And Quality
-- [ ] In the workspace inspector, confirm Validation appears before Quality Review.
+## Validation, Quality, And Foresight
+- [ ] In the workspace inspector, confirm Validation appears before Quality Review and Foresight appears before Export.
 - [ ] Confirm Validation explains structural correctness and shows build-ready as yes for the guided blueprint.
 - [ ] Confirm Quality Review explains usefulness, specificity, template fit, clarity, and implementation readiness.
 - [ ] Confirm safe/manual/risky fixes are visible when relevant.
 - [ ] Apply Safe Fixes.
 - [ ] Confirm validation still passes and quality does not get worse.
+- [ ] Confirm Foresight suggests regression tests, do-not-break instructions, an isolated implementation boundary, and a user trust/explanation surface for the Praxis Feature blueprint.
+- [ ] Convert one hidden opportunity to expansion.
+- [ ] Convert one risk to a decision record.
+- [ ] Confirm validation still passes after each foresight action.
 
 ## Save, Revisions, And Memory
 - [ ] Save the blueprint with a short save reason.
@@ -30,7 +34,9 @@ Use this checklist before deeper manual testing or release packaging.
 - [ ] Export JSON.
 - [ ] Export MVP Checklist.
 - [ ] Confirm exported text keeps MVP and expansion scope distinct.
-- [ ] Confirm the Codex Prompt includes rules, invariants, guardrails, and validation expectations.
+- [ ] Confirm the Markdown export includes a concise foresight summary.
+- [ ] Confirm the Codex Prompt includes rules, invariants, guardrails, validation expectations, recommended future work, and do-not-build-yet guidance.
+- [ ] Confirm the MVP Checklist does not include later or not-yet foresight items.
 
 ## Empty Blueprint Path
 - [ ] From the full workspace, create an empty blueprint.

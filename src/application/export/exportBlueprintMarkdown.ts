@@ -1,4 +1,5 @@
 import type { ProjectBlueprint } from "@/domain/models";
+import { buildBlueprintForesight } from "@/application/review/buildBlueprintForesight";
 import { buildBlueprintImprovementPlan } from "@/application/review/buildBlueprintImprovementPlan";
 import { buildBlueprintQualityReview } from "@/application/review/buildBlueprintQualityReview";
 import { describeFrameworkTemplateForBlueprint } from "@/application/templates/frameworkTemplates";
@@ -34,6 +35,7 @@ export const exportBlueprintMarkdown = (
     qualityReview && (qualityReview.grade !== "excellent" || qualityReview.issues.length > 0)
       ? buildBlueprintImprovementPlan(blueprint)
       : null;
+  const foresight = buildBlueprintForesight(blueprint);
 
   return `${joinBlocks([
     `# ${blueprint.project.name}`,
@@ -100,5 +102,20 @@ export const exportBlueprintMarkdown = (
           `Safe fixes: ${improvementPlan.safeFixes.length}. Manual review: ${improvementPlan.manualFixes.length}. Risky: ${improvementPlan.riskyFixes.length}.`,
         ])
       : "",
+    joinBlocks([
+      "## Foresight Summary",
+      `Strategic position: ${foresight.strategicPosition}`,
+      foresight.overallSummary,
+      foresight.recommendedNextMove
+        ? `Recommended next move: ${foresight.recommendedNextMove.title} - ${foresight.recommendedNextMove.whyNowOrLater}`
+        : "Recommended next move: Keep validation, quality review, and exports current.",
+      `Now:\n${bulletList(foresight.now.slice(0, 3), (item) => `${item.title} - ${item.description}`)}`,
+      foresight.risksToWatch.length > 0
+        ? `Risks to watch:\n${bulletList(foresight.risksToWatch.slice(0, 3), (item) => `${item.title} - ${item.whyItMatters}`)}`
+        : "",
+      foresight.notYet.length > 0
+        ? `Not yet:\n${bulletList(foresight.notYet.slice(0, 3), (item) => `${item.title} - ${item.whyNowOrLater}`)}`
+        : "",
+    ]),
   ])}\n`;
 };

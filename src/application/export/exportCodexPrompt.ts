@@ -1,4 +1,5 @@
 import type { ProjectBlueprint } from "@/domain/models";
+import { buildBlueprintForesight } from "@/application/review/buildBlueprintForesight";
 import { buildBlueprintImprovementPlan } from "@/application/review/buildBlueprintImprovementPlan";
 import { buildBlueprintQualityReview } from "@/application/review/buildBlueprintQualityReview";
 import { describeFrameworkTemplateForBlueprint } from "@/application/templates/frameworkTemplates";
@@ -22,12 +23,18 @@ export const exportCodexPrompt = (blueprint: ProjectBlueprint): string => {
   const template = describeFrameworkTemplateForBlueprint(blueprint);
   const qualityReview = buildBlueprintQualityReview(blueprint);
   const improvementPlan = buildBlueprintImprovementPlan(blueprint);
+  const foresight = buildBlueprintForesight(blueprint);
   const qualityWarnings = qualityReview.issues.filter(
     (issue) => issue.impact === "high" || issue.type === "export-readiness" || issue.type === "template-fit",
   );
   const unresolvedQualityFixes = [...improvementPlan.manualFixes, ...improvementPlan.riskyFixes].filter(
     (fix) => fix.expectedImpact !== "low" || fix.safety === "manual-review",
   );
+  const futureWork = [
+    ...foresight.next,
+    ...foresight.later,
+    ...foresight.hiddenOpportunities,
+  ].slice(0, 6);
 
   return `${joinBlocks([
     `# Codex Implementation Prompt: ${blueprint.project.name}`,
@@ -70,6 +77,23 @@ export const exportCodexPrompt = (blueprint: ProjectBlueprint): string => {
       validationSummary(blueprint.validation),
       "Do not mark the implementation complete until critical validation blockers are resolved and the governed structure remains connected.",
     ]),
+    futureWork.length > 0 || foresight.notYet.length > 0
+      ? joinBlocks([
+          "## Recommended Future Work / Do Not Build Yet",
+          futureWork.length > 0
+            ? `Future work to consider after the MVP is stable:\n${bulletList(
+                futureWork,
+                (item) => `${item.title}: ${item.description}`,
+              )}`
+            : "",
+          foresight.notYet.length > 0
+            ? `Do not build yet:\n${bulletList(
+                foresight.notYet.slice(0, 5),
+                (item) => `${item.title}: ${item.whyNowOrLater}`,
+              )}`
+            : "",
+        ])
+      : "",
     qualityWarnings.length > 0
       ? joinBlocks([
           "## Quality Warnings",
