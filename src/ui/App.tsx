@@ -72,6 +72,43 @@ const App = () => {
       setActiveView("workspace");
     }
   };
+  const selectedQuarantineEntry = workspace.selectedQuarantineId
+    ? workspace.quarantinedPayloads.find((entry) => entry.id === workspace.selectedQuarantineId) ?? null
+    : null;
+  const advancedStorageTools = (
+    <details className="advanced-inspector" open={workspace.quarantinedPayloads.length > 0}>
+      <summary>Advanced storage and debug tools</summary>
+      <PersistenceStatusPanel
+        loadReport={workspace.loadReport}
+        quarantinedPayloads={workspace.quarantinedPayloads}
+      />
+      <QuarantineInspectorPanel
+        quarantinedPayloads={workspace.quarantinedPayloads}
+        selectedEntry={selectedQuarantineEntry}
+        recoveryDraft={workspace.recoveryDraft}
+        previewResult={workspace.quarantinePreview}
+        restoreConfirmationChecked={workspace.restoreConfirmationChecked}
+        showPreviewJson={workspace.showPreviewJson}
+        feedback={workspace.quarantineFeedback}
+        onSelectEntry={workspace.selectQuarantinedPayload}
+        onRecoveryDraftChange={workspace.updateRecoveryDraft}
+        onImportFile={workspace.importRecoveryDraftFile}
+        onExport={workspace.exportQuarantinedPayload}
+        onPreview={workspace.previewSelectedQuarantine}
+        onSelectRecoveredProject={workspace.selectRecoveredProjectForPreview}
+        onRestoreConfirmationChange={workspace.setRestoreConfirmationChecked}
+        onTogglePreviewJson={workspace.togglePreviewJson}
+        onRestore={workspace.restorePreviewCandidate}
+        onClear={workspace.clearQuarantinedPayload}
+      />
+      {workspace.draftBlueprint ? (
+        <>
+          <MemoryViewer memory={workspace.draftBlueprint.memory} />
+          <BlueprintViewer blueprint={workspace.draftBlueprint} />
+        </>
+      ) : null}
+    </details>
+  );
 
   return (
     <div className="app-shell">
@@ -96,7 +133,7 @@ const App = () => {
             className="button-secondary"
             onClick={() => setActiveView("wizard")}
           >
-            New guided blueprint
+            New guided framework
           </button>
           <button
             type="button"
@@ -139,7 +176,7 @@ const App = () => {
                 disabled={!workspace.draftBlueprint}
                 onClick={workspace.completeMissingStructure}
               >
-                Complete Missing Structure
+                Complete missing structure
               </button>
               <label className="field field--wide">
                 <span>Checkpoint note</span>
@@ -578,33 +615,6 @@ const App = () => {
         </div>
 
         <div className="workspace-grid__inspector">
-          <PersistenceStatusPanel
-            loadReport={workspace.loadReport}
-            quarantinedPayloads={workspace.quarantinedPayloads}
-          />
-          <QuarantineInspectorPanel
-            quarantinedPayloads={workspace.quarantinedPayloads}
-            selectedEntry={
-              workspace.selectedQuarantineId
-                ? workspace.quarantinedPayloads.find((entry) => entry.id === workspace.selectedQuarantineId) ?? null
-                : null
-            }
-            recoveryDraft={workspace.recoveryDraft}
-            previewResult={workspace.quarantinePreview}
-            restoreConfirmationChecked={workspace.restoreConfirmationChecked}
-            showPreviewJson={workspace.showPreviewJson}
-            feedback={workspace.quarantineFeedback}
-            onSelectEntry={workspace.selectQuarantinedPayload}
-            onRecoveryDraftChange={workspace.updateRecoveryDraft}
-            onImportFile={workspace.importRecoveryDraftFile}
-            onExport={workspace.exportQuarantinedPayload}
-            onPreview={workspace.previewSelectedQuarantine}
-            onSelectRecoveredProject={workspace.selectRecoveredProjectForPreview}
-            onRestoreConfirmationChange={workspace.setRestoreConfirmationChecked}
-            onTogglePreviewJson={workspace.togglePreviewJson}
-            onRestore={workspace.restorePreviewCandidate}
-            onClear={workspace.clearQuarantinedPayload}
-          />
           {workspace.draftBlueprint ? (
             <>
               <ValidationPanel
@@ -636,11 +646,17 @@ const App = () => {
                 onCompareRevisionChange={workspace.selectCompareRevision}
                 onToggleSnapshotJson={workspace.toggleRevisionSnapshotJson}
               />
-              <MemoryViewer memory={workspace.draftBlueprint.memory} />
-              <BlueprintViewer blueprint={workspace.draftBlueprint} />
+              {advancedStorageTools}
             </>
           ) : (
-            <SectionCard title="No project selected" description="Create or select a project to begin." />
+            <>
+              <SectionCard
+                title="No project selected"
+                description="Create a guided framework or select a saved project to inspect validation, quality, exports, revisions, and memory."
+              />
+              <ExportPanel blueprint={null} />
+              {advancedStorageTools}
+            </>
           )}
         </div>
       </main>

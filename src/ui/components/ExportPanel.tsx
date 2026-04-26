@@ -6,7 +6,7 @@ import type { ProjectBlueprint } from "@/domain/models";
 import { SectionCard } from "@/ui/components/SectionCard";
 
 type ExportPanelProps = {
-  blueprint: ProjectBlueprint;
+  blueprint: ProjectBlueprint | null;
 };
 
 const downloadTextFile = (filename: string, content: string, mimeType: string) => {
@@ -24,60 +24,73 @@ const downloadTextFile = (filename: string, content: string, mimeType: string) =
 const filenameFor = (blueprint: ProjectBlueprint, suffix: string, extension: string): string =>
   `${blueprint.project.slug || "framework-blueprint"}-${suffix}.${extension}`;
 
-export const ExportPanel = ({ blueprint }: ExportPanelProps) => (
-  <SectionCard title="Export outputs" description="Download local implementation artifacts from the current blueprint.">
-    <div className="button-row">
-      <button
-        type="button"
-        onClick={() =>
-          downloadTextFile(
-            filenameFor(blueprint, "architecture-brief", "md"),
-            exportBlueprintMarkdown(blueprint),
-            "text/markdown",
-          )
-        }
+export const ExportPanel = ({ blueprint }: ExportPanelProps) => {
+  if (!blueprint) {
+    return (
+      <SectionCard
+        title="Export outputs"
+        description="Select or create a blueprint before downloading implementation artifacts."
       >
-        Export Markdown
-      </button>
-      <button
-        type="button"
-        className="button-secondary"
-        onClick={() =>
-          downloadTextFile(
-            filenameFor(blueprint, "codex-prompt", "md"),
-            exportCodexPrompt(blueprint),
-            "text/markdown",
-          )
-        }
-      >
-        Export Codex Prompt
-      </button>
-      <button
-        type="button"
-        className="button-secondary"
-        onClick={() =>
-          downloadTextFile(
-            filenameFor(blueprint, "blueprint", "json"),
-            exportBlueprintJson(blueprint),
-            "application/json",
-          )
-        }
-      >
-        Export JSON
-      </button>
-      <button
-        type="button"
-        className="button-secondary"
-        onClick={() =>
-          downloadTextFile(
-            filenameFor(blueprint, "mvp-checklist", "md"),
-            exportMvpChecklist(blueprint),
-            "text/markdown",
-          )
-        }
-      >
-        Export MVP Checklist
-      </button>
-    </div>
-  </SectionCard>
-);
+        <p className="muted">No exportable blueprint is selected.</p>
+      </SectionCard>
+    );
+  }
+
+  return (
+    <SectionCard title="Export outputs" description="Download local implementation artifacts from the current blueprint.">
+      <div className="button-row">
+        <button
+          type="button"
+          onClick={() =>
+            downloadTextFile(
+              filenameFor(blueprint, "architecture-brief", "md"),
+              exportBlueprintMarkdown(blueprint),
+              "text/markdown",
+            )
+          }
+        >
+          Export Markdown
+        </button>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() =>
+            downloadTextFile(
+              filenameFor(blueprint, "codex-prompt", "md"),
+              exportCodexPrompt(blueprint),
+              "text/markdown",
+            )
+          }
+        >
+          Export Codex Prompt
+        </button>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() =>
+            downloadTextFile(
+              filenameFor(blueprint, "blueprint", "json"),
+              exportBlueprintJson(blueprint),
+              "application/json",
+            )
+          }
+        >
+          Export JSON
+        </button>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() =>
+            downloadTextFile(
+              filenameFor(blueprint, "mvp-checklist", "md"),
+              exportMvpChecklist(blueprint),
+              "text/markdown",
+            )
+          }
+        >
+          Export MVP Checklist
+        </button>
+      </div>
+    </SectionCard>
+  );
+};

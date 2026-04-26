@@ -86,6 +86,25 @@ textarea {
   gap: 1rem;
 }
 
+.advanced-inspector {
+  border: 1px dashed #b8c2cc;
+  background: rgba(255, 253, 249, 0.72);
+  padding: 0.75rem;
+}
+
+.advanced-inspector > summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.advanced-inspector[open] > summary {
+  margin-bottom: 0.75rem;
+}
+
+.advanced-inspector > .section-card + .section-card {
+  margin-top: 1rem;
+}
+
 .section-card {
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid #d7d6ce;
@@ -605,7 +624,8 @@ textarea {
   .validation-summary,
   .project-card__stats,
   .readiness-callout,
-  .readiness-grid {
+  .readiness-grid,
+  .quality-improvement-plan {
     grid-template-columns: 1fr;
   }
 }

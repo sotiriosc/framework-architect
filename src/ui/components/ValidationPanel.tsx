@@ -57,7 +57,10 @@ export const ValidationPanel = ({ validation, projectStatus, relationOptions }: 
   const nextRecommendedFix = grouped.blockers[0] ?? grouped.warnings[0] ?? null;
 
   return (
-    <SectionCard title="Validation panel" description="Structural checks stay centralized outside the UI layer.">
+    <SectionCard
+      title="Validation"
+      description="Checks structural correctness: required sections, valid references, governance scope, and build-ready blockers."
+    >
       <div className={`readiness-callout${validation.buildReady ? " readiness-callout--ready" : ""}`}>
         <div>
           <span className="eyebrow">Readiness summary</span>

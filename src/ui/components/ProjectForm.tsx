@@ -45,7 +45,10 @@ export const ProjectForm = ({
   onProjectChange,
 }: ProjectFormProps) => (
   <>
-    <SectionCard title="Project creation form" description="Start with a raw idea and a project name.">
+    <SectionCard
+      title="Raw-idea creation"
+      description="Create framework completes structure by default. Empty blueprint is the advanced manual path."
+    >
       <div className="form-grid">
         <label className="field">
           <span>Project name</span>
@@ -89,6 +92,9 @@ export const ProjectForm = ({
           Create empty blueprint
         </button>
       </div>
+      <p className="muted">
+        Empty blueprints are intentionally not build-ready until required structure, governance, and MVP scope exist.
+      </p>
     </SectionCard>
 
     {project ? (

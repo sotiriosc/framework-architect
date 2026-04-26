@@ -352,6 +352,18 @@ const significantInvariantWords = (statement: string): string[] =>
 
 const titleFromWords = (words: string[]): string => words.map(titleWord).join(" ");
 
+const outcomeActionPhrase = (value: string): string => {
+  const trimmed = value.trim();
+  if (/^(add|build|capture|clarify|create|define|deliver|export|generate|help|improve|make|map|prepare|produce|reduce|ship|support|turn|validate)\b/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  return `reach ${trimmed}`;
+};
+
+const outcomeLabel = (projectName: string, intendedOutcome: string): string =>
+  `${projectName}: ${intendedOutcome.charAt(0).toUpperCase()}${intendedOutcome.slice(1)}`;
+
 const deriveInvariantName = (statement: string): string => {
   const normalized = statement.toLowerCase();
 
@@ -668,7 +680,8 @@ export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): Proj
   const intent = createIntent(`Create a ${guided.frameworkType} for ${guided.targetUser}.`);
   intent.problemStatement = guided.problem;
   intent.targetAudience = guided.targetUser;
-  intent.valueHypothesis = `If ${guided.targetUser} can work from a governed blueprint, they can reach ${guided.intendedOutcome} with fewer hidden assumptions.`;
+  const intendedOutcomeAction = outcomeActionPhrase(guided.intendedOutcome);
+  intent.valueHypothesis = `If ${guided.targetUser} can work from a governed blueprint, they can ${intendedOutcomeAction} with fewer hidden assumptions.`;
 
   const primaryActor = createActor();
   primaryActor.name = guided.targetUser;
@@ -690,9 +703,9 @@ export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): Proj
     "Traceable decision records",
   ];
 
-  const primaryOutcome = createOutcome(`${guided.projectName} achieves ${guided.intendedOutcome}`);
+  const primaryOutcome = createOutcome(outcomeLabel(guided.projectName, guided.intendedOutcome));
   primaryOutcome.description = `The ${guided.frameworkType} solves: ${guided.problem}`;
-  primaryOutcome.successMetric = `The target user can reach ${guided.intendedOutcome} through the MVP workflow.`;
+  primaryOutcome.successMetric = `The target user can ${intendedOutcomeAction} through the MVP workflow.`;
   primaryOutcome.actorIds = [primaryActor.id];
 
   const governanceOutcome = createOutcome("Governed scope and assumptions stay explicit");
@@ -968,7 +981,7 @@ export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): Proj
   blueprint.guardrails = guardrails;
   blueprint.phases = phases;
   blueprint.mvpScope.summary = `First build: ${joinList(guided.mvpBoundary)}.`;
-  blueprint.mvpScope.successDefinition = `The MVP helps ${guided.targetUser} reach ${guided.intendedOutcome} with explicit governance.`;
+  blueprint.mvpScope.successDefinition = `The MVP helps ${guided.targetUser} ${intendedOutcomeAction} with explicit governance.`;
   blueprint.mvpScope.items = mvpItems;
   blueprint.expansionScope.summary = `Future options after the MVP is validated: ${joinList(guided.expansionIdeas)}.`;
   blueprint.expansionScope.futureSignals = [

@@ -16,6 +16,11 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - MVP scope
 - expansion scope
 
+## Current V1 Product Loop
+Idea -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Export.
+
+The default path is guided and populated: users choose or infer a template, generate a governed blueprint, review structural validation, inspect quality and next-best fixes, apply deterministic safe fixes when useful, then export implementation artifacts. The full editor remains available for manual architecture work, including the advanced empty-blueprint path.
+
 ## V1 Includes
 - Strong TypeScript domain types and Zod schemas
 - Local-first persistence for projects, blueprint data, and memory
@@ -25,7 +30,10 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - Guided intake that turns structured project answers into a populated governed blueprint
 - Template-guided generation for software apps, Praxis features, business systems, coaching systems, content/brand frameworks, books/white papers, SOP/workflows, and generic frameworks
 - Deterministic missing-structure completion for raw-idea projects
-- Minimal UI for project creation, intent/outcome editing, blueprint viewing, memory viewing, and validation review
+- Relation-aware editing that shows human-readable entity names while preserving stored IDs
+- Export outputs for Markdown architecture briefs, Codex prompts, JSON, and MVP checklists
+- Blueprint quality review and deterministic safe quality fixes
+- Minimal UI for dashboard, guided creation, full editing, validation, quality review, exports, revision history, memory, and quarantine recovery
 - A seed example blueprint for inspection and iteration
 
 ## Architecture Layers
@@ -122,6 +130,13 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - JSON export writes the current `ProjectBlueprint` as formatted JSON
 - MVP checklist export creates a practical checklist from MVP scope items, phases, required functions, and validation blockers
 
+## Quality Review And Safe Fixes
+- Validation answers whether the blueprint is structurally correct and build-ready
+- Quality review answers whether the blueprint is specific, useful, template-aligned, clear, and implementation-ready
+- Safe quality fixes are deterministic local actions that add or clarify without deleting user-authored content
+- Manual-review and risky fixes are surfaced for judgment but are not auto-applied
+- Safe fixes still save through `BlueprintService`, so validation, stable change review, memory snapshots, and revision history remain intact
+
 ## Governance Policy Metadata
 - Rules and invariants carry explicit `policy` metadata in the domain schema
 - The app keeps camelCase internally and still accepts older stored entities without `policy` by deriving safe defaults during schema parsing
@@ -175,6 +190,9 @@ npm run dev
 npm run build
 npm run test
 ```
+
+## Manual Smoke Test
+Use `docs/manual-smoke-test.md` for the V1 release-readiness checklist.
 
 ## Notes
 - The app is deliberately local-first and transparent.

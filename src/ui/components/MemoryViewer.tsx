@@ -35,7 +35,7 @@ type MemoryViewerProps = {
 };
 
 export const MemoryViewer = ({ memory }: MemoryViewerProps) => (
-  <SectionCard title="Memory viewer" description="Project, structural, and decision memory are persistent from v1.">
+  <SectionCard title="Memory snapshots" description="Advanced view of project, structural, and decision memory captured at stable saves.">
     <div className="memory-grid">
       <div>
         <h3>Project memory</h3>

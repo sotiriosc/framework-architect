@@ -89,10 +89,12 @@ export const QuarantineInspectorPanel = ({
   return (
     <SectionCard
       title="Quarantine recovery"
-      description="Inspect failed local payloads, export them, repair the JSON, and retry recovery deliberately."
+      description="Advanced local-storage recovery. Preview is non-destructive, restore requires confirmation, and quarantine is never cleared automatically."
     >
       {quarantinedPayloads.length === 0 ? (
-        <p className="muted">No quarantined payloads are waiting for recovery.</p>
+        <p className="muted">
+          No quarantined payloads are waiting for recovery. Normal local storage loaded without needing manual repair.
+        </p>
       ) : (
         <>
           <div className="form-grid">

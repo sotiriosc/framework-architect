@@ -620,10 +620,11 @@ export const buildBlueprintQualityReview = (blueprint: ProjectBlueprint): Bluepr
   const overallScore = clampScore(sectionAverage * 0.8 + templateFit.score * 0.2);
   const grade = gradeForScore(overallScore);
   const nextBestFix = selectNextBestFix(issues);
+  const improvementNoun = issues.length === 1 ? "improvement remains" : "improvements remain";
   const summary =
     issues.length === 0
       ? `Quality review is ${grade}; the blueprint is specific, connected, and ready to use.`
-      : `Quality review is ${grade}; ${issues.length} improvement${issues.length === 1 ? "" : "s"} remain beyond structural validation.`;
+      : `Quality review score is ${grade}; ${issues.length} ${improvementNoun} beyond structural validation.`;
 
   return {
     overallScore,

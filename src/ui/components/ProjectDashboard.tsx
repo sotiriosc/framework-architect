@@ -29,17 +29,22 @@ export const ProjectDashboard = ({
   <div className="dashboard-stack">
     <SectionCard
       title="Projects"
-      description="Start with guided blueprint creation, or open the full editor workspace for detailed changes."
+      description="V1 loop: Idea -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Export."
     >
       <div className="toolbar toolbar--split">
-        <p className="muted">Local projects remain in browser storage with validation, memory, and revisions.</p>
+        <p className="muted">
+          Local projects stay in browser storage with validation, memory snapshots, and revision history.
+        </p>
         <button type="button" onClick={onCreateGuidedBlueprint}>
-          Create new guided blueprint
+          Create guided framework
         </button>
       </div>
 
       {projects.length === 0 ? (
-        <p className="muted">No projects are available yet.</p>
+        <p className="muted">
+          No projects yet. Create a guided framework to start from a populated blueprint, or open the full workspace
+          for the advanced empty-blueprint path.
+        </p>
       ) : (
         <div className="project-card-grid">
           {projects.map((blueprint) => {

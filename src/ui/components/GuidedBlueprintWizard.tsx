@@ -86,8 +86,8 @@ export const GuidedBlueprintWizard = ({
   return (
     <div className="guided-shell">
       <SectionCard
-        title="Guided blueprint builder"
-        description="A governed blueprint makes assumptions, constraints, rules, and scope explicit before implementation."
+        title="Guided framework builder"
+        description="Turn the idea into a template-shaped blueprint with explicit assumptions, constraints, rules, and scope."
       >
         <form className="form-grid" onSubmit={handleSubmit}>
           <label className="field">
@@ -202,7 +202,7 @@ export const GuidedBlueprintWizard = ({
             <button type="button" className="button-secondary" onClick={onCancel}>
               Back to projects
             </button>
-            <button type="submit">Create guided blueprint</button>
+            <button type="submit">Create framework</button>
           </div>
         </form>
       </SectionCard>

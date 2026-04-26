@@ -50,7 +50,10 @@ export const RevisionHistoryPanel = ({
     description="Track structural blueprint changes over time. Revision history is separate from storage recovery and quarantine."
   >
     {revisions.length === 0 ? (
-      <p className="muted">No revisions recorded for the active project yet.</p>
+      <p className="muted">
+        No revisions recorded yet. Save the blueprint, create a checkpoint, or restore from recovery to create a
+        stable revision.
+      </p>
     ) : (
       <>
         <ul className="stacked-list">

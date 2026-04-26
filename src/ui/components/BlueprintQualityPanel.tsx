@@ -94,7 +94,10 @@ export const BlueprintQualityPanel = ({
   );
 
   return (
-    <SectionCard title="Blueprint quality" description="A deterministic review of usefulness beyond validation.">
+    <SectionCard
+      title="Quality review"
+      description="Evaluates usefulness, specificity, template fit, clarity, and implementation readiness after validation."
+    >
       <div className={`quality-callout quality-callout--${review.grade}`}>
         <div>
           <span className="eyebrow">Overall quality</span>
@@ -116,6 +119,7 @@ export const BlueprintQualityPanel = ({
           <strong>{improvementPlan.recommendedFirstAction?.title ?? "No guided fixes pending"}</strong>
           <p>{improvementPlan.planSummary}</p>
           <p className="muted">Estimated impact: {improvementPlan.estimatedImpactScore}/100</p>
+          <p className="muted">Automatic repair only applies safe fixes. Manual-review and risky fixes remain advisory.</p>
         </div>
         <button
           type="button"
@@ -151,7 +155,9 @@ export const BlueprintQualityPanel = ({
       <details className="quality-detail" open>
         <summary>Issues</summary>
         {review.issues.length === 0 ? (
-          <p className="muted">No quality issues detected.</p>
+          <p className="muted">
+            No quality issues detected. Safe fixes are disabled because there is nothing deterministic to repair.
+          </p>
         ) : (
           <ul className="stacked-list">
             {review.issues.map((issue) => (

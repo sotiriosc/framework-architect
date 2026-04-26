@@ -6,7 +6,7 @@ type BlueprintViewerProps = {
 };
 
 export const BlueprintViewer = ({ blueprint }: BlueprintViewerProps) => (
-  <SectionCard title="Blueprint viewer" description="Inspect the current structured blueprint document.">
+  <SectionCard title="Blueprint JSON" description="Advanced debug view of the current structured blueprint document.">
     <pre className="json-viewer">{JSON.stringify(blueprint, null, 2)}</pre>
   </SectionCard>
 );

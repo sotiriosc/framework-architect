@@ -29,7 +29,7 @@ export const PersistenceStatusPanel = ({
   return (
     <SectionCard
       title="Persistence status"
-      description="Local storage is versioned and migrated before the current schema is trusted."
+      description="Advanced view of the local storage load, migration, and quarantine state."
     >
       {loadReport ? (
         <>

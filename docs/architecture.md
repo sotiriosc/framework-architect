@@ -3,6 +3,11 @@
 ## V1 Direction
 Framework Architect is intentionally local-first and architecture-first. The app captures a project idea as a governed blueprint and keeps governance concepts explicit instead of burying them in helper code.
 
+## Current V1 Product Loop
+Idea -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Export.
+
+The primary UI path follows that order: dashboard and guided intake create a populated blueprint, the workspace shows structural validation first, quality review and safe fixes second, exports third, and revision history after the current working state. Persistence status, quarantine recovery, memory snapshots, and raw blueprint JSON remain available as advanced diagnostics rather than the default read path.
+
 ## Top-Level Blueprint Contract
 The blueprint document contains:
 - project
@@ -92,6 +97,16 @@ Export generation is application-layer formatting on top of the current `Project
 - `exportMvpChecklist(...)` creates a checklist from MVP items, phases, functions, and validation blockers
 
 The UI download panel only turns those local strings into files with project-slug filenames. Export behavior remains separate from validation, stable save review, memory, revision history, and quarantine recovery.
+
+## Quality Review And Improvement Actions
+Quality review is deterministic application logic above validation. It does not change the schema and does not decide build-ready status.
+
+- Validation checks structural correctness, required sections, references, governance scope, and build-ready blockers
+- Quality review scores usefulness, specificity, template fit, clarity, MVP/expansion separation, and export readiness
+- Improvement planning groups findings into safe, manual-review, and risky fixes
+- Safe fixes may rename generic invariants, fill empty descriptions, add mitigations, add or remap export surfaces, separate duplicate expansion names, add thin template structure, or add high-risk guardrails
+- Safe fixes are applied through `BlueprintService`, then parsed, validated, reviewed, saved, snapshotted in memory, and recorded in revision history
+- Manual-review and risky fixes are displayed but not auto-applied because they may require product judgment or could overwrite user-authored structure
 
 ## Persistence Strategy
 The app uses a repository interface with a localStorage adapter. That keeps persistence replaceable so a future database layer can be added without rewriting domain, schema, or validation code.
