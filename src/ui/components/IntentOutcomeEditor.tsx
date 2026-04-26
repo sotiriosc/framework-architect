@@ -3,13 +3,14 @@ import { createOutcome } from "@/domain/defaults";
 import { outcomePriorityValues } from "@/schema";
 import { CollectionEditor, type EditorField } from "@/ui/components/CollectionEditor";
 import { SectionCard } from "@/ui/components/SectionCard";
+import type { RelationOptionGroups } from "@/ui/relationOptions";
 
 const outcomeFields: EditorField[] = [
   { key: "name", label: "Name" },
   { key: "description", label: "Description", kind: "textarea" },
   { key: "successMetric", label: "Success metric" },
   { key: "priority", label: "Priority", kind: "select", options: outcomePriorityValues },
-  { key: "actorIds", label: "Actor IDs", kind: "csv" },
+  { key: "actorIds", label: "Actors", kind: "relation-multi", relationType: "actors" },
 ];
 
 type IntentOutcomeEditorProps = {
@@ -18,6 +19,7 @@ type IntentOutcomeEditorProps = {
   onIntentChange: (intent: Intent) => void;
   onOutcomesChange: (outcomes: Outcome[]) => void;
   onExtract: () => void;
+  relationOptions?: RelationOptionGroups;
 };
 
 export const IntentOutcomeEditor = ({
@@ -26,6 +28,7 @@ export const IntentOutcomeEditor = ({
   onIntentChange,
   onOutcomesChange,
   onExtract,
+  relationOptions,
 }: IntentOutcomeEditorProps) => (
   <>
     <SectionCard
@@ -80,6 +83,7 @@ export const IntentOutcomeEditor = ({
       fields={outcomeFields}
       createItem={() => createOutcome()}
       onChange={onOutcomesChange}
+      relationOptions={relationOptions}
     />
   </>
 );

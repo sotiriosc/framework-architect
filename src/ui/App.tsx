@@ -33,6 +33,7 @@ import {
   scopeItemFields,
 } from "@/ui/editorConfig";
 import { useBlueprintWorkspace } from "@/ui/hooks/useBlueprintWorkspace";
+import { buildRelationOptionGroups } from "@/ui/relationOptions";
 
 const joinLines = (items: string[]): string => items.join("\n");
 const parseLines = (value: string): string[] =>
@@ -57,6 +58,7 @@ const App = () => {
   const [activeView, setActiveView] = useState<"dashboard" | "wizard" | "workspace">("dashboard");
   const [saveReason, setSaveReason] = useState("Manual blueprint update.");
   const [checkpointNote, setCheckpointNote] = useState("");
+  const relationOptions = workspace.draftBlueprint ? buildRelationOptionGroups(workspace.draftBlueprint) : undefined;
 
   const openProjectWorkspace = (projectId: string) => {
     workspace.selectProject(projectId);
@@ -235,6 +237,7 @@ const App = () => {
                   }))
                 }
                 onExtract={workspace.reextractIntent}
+                relationOptions={relationOptions}
               />
 
               <SectionCard title="Decision logic" description="Edit the explicit decision principles and open questions.">
@@ -280,6 +283,7 @@ const App = () => {
                 items={workspace.draftBlueprint.actors}
                 fields={actorFields}
                 createItem={createEntityFactories.actors}
+                relationOptions={relationOptions}
                 onChange={(actors) =>
                   workspace.updateDraftBlueprint((current) => ({
                     ...current,
@@ -294,6 +298,7 @@ const App = () => {
                 items={workspace.draftBlueprint.constraints}
                 fields={constraintFields}
                 createItem={createEntityFactories.constraints}
+                relationOptions={relationOptions}
                 onChange={(constraints) =>
                   workspace.updateDraftBlueprint((current) => ({
                     ...current,
@@ -307,6 +312,7 @@ const App = () => {
                 items={workspace.draftBlueprint.domains}
                 fields={domainFields}
                 createItem={createEntityFactories.domains}
+                relationOptions={relationOptions}
                 onChange={(domains) =>
                   workspace.updateDraftBlueprint((current) => ({
                     ...current,
@@ -320,6 +326,7 @@ const App = () => {
                 items={workspace.draftBlueprint.functions}
                 fields={functionFields}
                 createItem={createEntityFactories.functions}
+                relationOptions={relationOptions}
                 onChange={(functions) =>
                   workspace.updateDraftBlueprint((current) => ({
                     ...current,
@@ -333,6 +340,7 @@ const App = () => {
                 items={workspace.draftBlueprint.components}
                 fields={componentFields}
                 createItem={createEntityFactories.components}
+                relationOptions={relationOptions}
                 onChange={(components) =>
                   workspace.updateDraftBlueprint((current) => ({
                     ...current,
@@ -346,6 +354,7 @@ const App = () => {
                 items={workspace.draftBlueprint.flows}
                 fields={flowFields}
                 createItem={createEntityFactories.flows}
+                relationOptions={relationOptions}
                 onChange={(flows) =>
                   workspace.updateDraftBlueprint((current) => ({
                     ...current,
@@ -359,6 +368,7 @@ const App = () => {
                 items={workspace.draftBlueprint.dependencies}
                 fields={dependencyFields}
                 createItem={createEntityFactories.dependencies}
+                relationOptions={relationOptions}
                 onChange={(dependencies) =>
                   workspace.updateDraftBlueprint((current) => ({
                     ...current,
@@ -372,6 +382,7 @@ const App = () => {
                 items={workspace.draftBlueprint.rules}
                 fields={ruleFields}
                 createItem={createEntityFactories.rules}
+                relationOptions={relationOptions}
                 onChange={(rules) =>
                   workspace.updateDraftBlueprint((current) => ({
                     ...current,
@@ -385,6 +396,7 @@ const App = () => {
                 items={workspace.draftBlueprint.invariants}
                 fields={invariantFields}
                 createItem={createEntityFactories.invariants}
+                relationOptions={relationOptions}
                 onChange={(invariants) =>
                   workspace.updateDraftBlueprint((current) => ({
                     ...current,
@@ -398,6 +410,7 @@ const App = () => {
                 items={workspace.draftBlueprint.guardrails}
                 fields={guardrailFields}
                 createItem={createEntityFactories.guardrails}
+                relationOptions={relationOptions}
                 onChange={(guardrails) =>
                   workspace.updateDraftBlueprint((current) => ({
                     ...current,
@@ -411,6 +424,7 @@ const App = () => {
                 items={workspace.draftBlueprint.phases}
                 fields={phaseFields}
                 createItem={createEntityFactories.phases}
+                relationOptions={relationOptions}
                 onChange={(phases) =>
                   workspace.updateDraftBlueprint((current) => ({
                     ...current,
@@ -461,6 +475,7 @@ const App = () => {
                 items={workspace.draftBlueprint.mvpScope.items}
                 fields={scopeItemFields}
                 createItem={createEntityFactories.mvpItems}
+                relationOptions={relationOptions}
                 onChange={(items) =>
                   workspace.updateDraftBlueprint((current) => ({
                     ...current,
@@ -514,6 +529,7 @@ const App = () => {
                 items={workspace.draftBlueprint.expansionScope.items}
                 fields={scopeItemFields}
                 createItem={createEntityFactories.expansionItems}
+                relationOptions={relationOptions}
                 onChange={(items) =>
                   workspace.updateDraftBlueprint((current) => ({
                     ...current,
@@ -531,6 +547,7 @@ const App = () => {
                 fields={decisionRecordFields}
                 createItem={createEntityFactories.decisionRecords}
                 getItemLabel={(item) => String(item.title)}
+                relationOptions={relationOptions}
                 onChange={(records) =>
                   workspace.updateDraftBlueprint((current) => ({
                     ...current,
@@ -547,6 +564,7 @@ const App = () => {
                 items={workspace.draftBlueprint.failureModes}
                 fields={failureModeFields}
                 createItem={createEntityFactories.failureModes}
+                relationOptions={relationOptions}
                 onChange={(failureModes) =>
                   workspace.updateDraftBlueprint((current) => ({
                     ...current,
@@ -591,6 +609,7 @@ const App = () => {
               <ValidationPanel
                 validation={workspace.draftBlueprint.validation}
                 projectStatus={workspace.draftBlueprint.project.status}
+                relationOptions={relationOptions}
               />
               <ExportPanel blueprint={workspace.draftBlueprint} />
               <RevisionHistoryPanel

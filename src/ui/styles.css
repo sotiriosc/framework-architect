@@ -324,6 +324,89 @@ textarea {
   margin-top: 0.25rem;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.relation-summary {
+  display: block;
+  margin-top: 0.25rem;
+  color: #52616d;
+}
+
+.relation-picker {
+  gap: 0.5rem;
+}
+
+.relation-picker__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.relation-picker__header button {
+  padding: 0.35rem 0.6rem;
+}
+
+.relation-picker__options {
+  display: grid;
+  gap: 0.45rem;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid #d7d6ce;
+  background: #fffdf9;
+  padding: 0.6rem;
+}
+
+.relation-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.55rem;
+}
+
+.relation-option input {
+  width: auto;
+  margin-top: 0.2rem;
+}
+
+.relation-option strong,
+.relation-option small {
+  display: block;
+}
+
+.relation-picker__missing {
+  display: grid;
+  gap: 0.25rem;
+  border: 1px solid #c95f50;
+  background: #fff4f2;
+  padding: 0.6rem;
+}
+
+.relation-picker__missing code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.relation-picker__raw {
+  border: 1px dashed #b8c2cc;
+  padding: 0.5rem;
+  background: #fbfaf6;
+}
+
+.relation-picker__raw summary {
+  cursor: pointer;
+}
+
 .readiness-callout {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

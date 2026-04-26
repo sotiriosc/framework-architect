@@ -1,11 +1,20 @@
 import type { ReactNode } from "react";
 
+import { RelationMultiSelect } from "@/ui/components/RelationMultiSelect";
+import { RelationSingleSelect } from "@/ui/components/RelationSingleSelect";
 import { SectionCard } from "@/ui/components/SectionCard";
+import {
+  labelsForRelationIds,
+  resolveRelationOptions,
+  type RelationOptionGroups,
+  type RelationType,
+} from "@/ui/relationOptions";
 
 export type EditorField = {
   key: string;
   label: string;
-  kind?: "text" | "textarea" | "csv" | "select" | "number" | "boolean";
+  kind?: "text" | "textarea" | "csv" | "select" | "number" | "boolean" | "relation-multi" | "relation-single";
+  relationType?: RelationType;
   options?: readonly string[];
   placeholder?: string;
   rows?: number;
@@ -20,6 +29,7 @@ type CollectionEditorProps<T extends Record<string, unknown>> = {
   onChange: (items: T[]) => void;
   getItemLabel?: (item: T, index: number) => string;
   renderMeta?: (item: T) => ReactNode;
+  relationOptions?: RelationOptionGroups;
 };
 
 const stringifyCsv = (value: unknown): string =>
@@ -30,6 +40,8 @@ const parseCsv = (value: string): string[] =>
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+
+const asStringArray = (value: unknown): string[] => (Array.isArray(value) ? value.map((item) => String(item)) : []);
 
 const getFieldValue = (value: Record<string, unknown>, key: string): unknown =>
   key.split(".").reduce<unknown>((current, segment) => {
@@ -66,6 +78,43 @@ const setFieldValue = (
   return nextRecord;
 };
 
+const relationOptionsForField = (
+  field: EditorField,
+  item: Record<string, unknown>,
+  relationOptions: RelationOptionGroups | undefined,
+) => {
+  if (!relationOptions || !field.relationType) {
+    return [];
+  }
+
+  return resolveRelationOptions(relationOptions, field.relationType, String(getFieldValue(item, "scope") ?? ""));
+};
+
+const relationSummaryForItem = (
+  item: Record<string, unknown>,
+  fields: EditorField[],
+  relationOptions: RelationOptionGroups | undefined,
+): string[] => {
+  if (!relationOptions) {
+    return [];
+  }
+
+  return fields
+    .filter((field) => field.kind === "relation-multi" || field.kind === "relation-single")
+    .map((field) => {
+      const fieldValue = getFieldValue(item, field.key);
+      const ids = field.kind === "relation-single" ? [String(fieldValue ?? "")].filter(Boolean) : asStringArray(fieldValue);
+      if (ids.length === 0) {
+        return "";
+      }
+
+      const options = relationOptionsForField(field, item, relationOptions);
+      return `${field.label}: ${labelsForRelationIds(ids, options)}`;
+    })
+    .filter(Boolean)
+    .slice(0, 2);
+};
+
 export const CollectionEditor = <T extends Record<string, unknown>>({
   title,
   description,
@@ -75,6 +124,7 @@ export const CollectionEditor = <T extends Record<string, unknown>>({
   onChange,
   getItemLabel,
   renderMeta,
+  relationOptions,
 }: CollectionEditorProps<T>) => {
   const updateItem = (index: number, key: string, value: unknown) => {
     const nextItems = items.map((item, itemIndex) => {
@@ -116,6 +166,11 @@ export const CollectionEditor = <T extends Record<string, unknown>>({
                     : String(item.name ?? item.title ?? `Item ${index + 1}`)}
                 </strong>
                 <span className="muted"> {String(item.id ?? "")}</span>
+                {relationSummaryForItem(item, fields, relationOptions).map((summary) => (
+                  <small key={summary} className="relation-summary">
+                    {summary}
+                  </small>
+                ))}
               </div>
               <button
                 type="button"
@@ -161,6 +216,33 @@ export const CollectionEditor = <T extends Record<string, unknown>>({
                         onChange={(event) => updateItem(index, field.key, parseCsv(event.target.value))}
                       />
                     </label>
+                  );
+                }
+
+                if (field.kind === "relation-multi") {
+                  return (
+                    <RelationMultiSelect
+                      key={field.key}
+                      id={inputId}
+                      label={field.label}
+                      value={asStringArray(fieldValue)}
+                      options={relationOptionsForField(field, item, relationOptions)}
+                      description={field.relationType === "scopeEntities" ? "Options follow the selected scope." : undefined}
+                      onChange={(value) => updateItem(index, field.key, value)}
+                    />
+                  );
+                }
+
+                if (field.kind === "relation-single") {
+                  return (
+                    <RelationSingleSelect
+                      key={field.key}
+                      id={inputId}
+                      label={field.label}
+                      value={String(fieldValue ?? "")}
+                      options={relationOptionsForField(field, item, relationOptions)}
+                      onChange={(value) => updateItem(index, field.key, value)}
+                    />
                   );
                 }
 

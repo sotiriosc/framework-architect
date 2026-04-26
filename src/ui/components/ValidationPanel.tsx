@@ -1,9 +1,11 @@
 import type { ValidationCheck, ValidationState } from "@/domain/models";
 import { SectionCard } from "@/ui/components/SectionCard";
+import { formatRelationLabel, type RelationOptionGroups } from "@/ui/relationOptions";
 
 type ValidationPanelProps = {
   validation: ValidationState;
   projectStatus: string;
+  relationOptions?: RelationOptionGroups;
 };
 
 const groupChecks = (checks: ValidationCheck[]) => ({
@@ -12,7 +14,14 @@ const groupChecks = (checks: ValidationCheck[]) => ({
   passes: checks.filter((check) => check.status === "pass"),
 });
 
-const renderCheckGroup = (title: string, checks: ValidationCheck[]) => (
+const renderRelatedIds = (ids: string[], relationOptions: RelationOptionGroups | undefined) =>
+  relationOptions ? ids.map((id) => formatRelationLabel(id, relationOptions)).join(", ") : ids.join(", ");
+
+const renderCheckGroup = (
+  title: string,
+  checks: ValidationCheck[],
+  relationOptions: RelationOptionGroups | undefined,
+) => (
   <div className="readiness-group">
     <div className="readiness-group__header">
       <strong>{title}</strong>
@@ -26,6 +35,9 @@ const renderCheckGroup = (title: string, checks: ValidationCheck[]) => (
           <li key={check.id}>
             <span>{check.code}</span>
             <small>{check.message}</small>
+            {check.relatedEntityIds.length > 0 ? (
+              <small>Related: {renderRelatedIds(check.relatedEntityIds, relationOptions)}</small>
+            ) : null}
           </li>
         ))}
       </ul>
@@ -33,7 +45,7 @@ const renderCheckGroup = (title: string, checks: ValidationCheck[]) => (
   </div>
 );
 
-export const ValidationPanel = ({ validation, projectStatus }: ValidationPanelProps) => {
+export const ValidationPanel = ({ validation, projectStatus, relationOptions }: ValidationPanelProps) => {
   const summary = validation.checks.reduce(
     (counts, check) => {
       counts[check.status] += 1;
@@ -89,9 +101,9 @@ export const ValidationPanel = ({ validation, projectStatus }: ValidationPanelPr
       </div>
 
       <div className="readiness-grid">
-        {renderCheckGroup("Blockers", grouped.blockers)}
-        {renderCheckGroup("Warnings", grouped.warnings)}
-        {renderCheckGroup("Passes", grouped.passes)}
+        {renderCheckGroup("Blockers", grouped.blockers, relationOptions)}
+        {renderCheckGroup("Warnings", grouped.warnings, relationOptions)}
+        {renderCheckGroup("Passes", grouped.passes, relationOptions)}
       </div>
 
       <details className="raw-validation" open>
@@ -107,7 +119,7 @@ export const ValidationPanel = ({ validation, projectStatus }: ValidationPanelPr
               <strong>{check.message}</strong>
               {check.recommendation ? <p>{check.recommendation}</p> : null}
               {check.relatedEntityIds.length > 0 ? (
-                <p className="muted">related: {check.relatedEntityIds.join(", ")}</p>
+                <p className="muted">related: {renderRelatedIds(check.relatedEntityIds, relationOptions)}</p>
               ) : null}
             </li>
           ))}
