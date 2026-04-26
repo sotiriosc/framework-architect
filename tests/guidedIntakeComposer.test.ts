@@ -41,6 +41,49 @@ const guidedInput: GuidedIntakeInput = {
   ],
 };
 
+const praxisGuidedInput: GuidedIntakeInput = {
+  projectName: "Praxis Feature Framework",
+  rawIdea:
+    "Create a governed local-first blueprint builder for Praxis feature ideas that can export useful implementation tasks.",
+  frameworkType: "feature architecture framework",
+  targetUser: "Praxis builders",
+  problem:
+    "Praxis feature ideas arrive as raw notes, then lose assumptions, constraints, scope boundaries, and implementation guardrails.",
+  intendedOutcome: "turn feature ideas into build-ready governed implementation briefs",
+  corePrinciples: [
+    "Preserve existing program logic",
+    "Make scope boundaries explicit",
+    "Export only after validation",
+  ],
+  mustRemainTrue: [
+    "Generated prompts must not weaken existing Praxis program logic",
+    "MVP scope and expansion scope must remain separate",
+    "Every component must map to a function",
+    "Every function must map to an outcome",
+  ],
+  mvpBoundary: [
+    "Capture raw feature idea",
+    "Generate connected framework structure",
+    "Validate readiness and missing structure",
+    "Export Markdown architecture brief",
+    "Export Codex Prompt",
+    "Export JSON blueprint",
+    "Export MVP Checklist",
+  ],
+  expansionIdeas: [
+    "Template library for Praxis features",
+    "AI-assisted extraction from long notes",
+    "Saved framework versions",
+    "Comparison between framework revisions",
+    "One-click Codex task generation",
+    "Team review and collaboration",
+  ],
+  knownRisks: [
+    "Generated prompts may accidentally weaken existing Praxis program logic",
+    "Expansion ideas may get pulled into the MVP",
+  ],
+};
+
 const createTestStorage = (): StorageLike => {
   const state = new Map<string, string>();
 
@@ -111,6 +154,62 @@ describe("composeBlueprintFromGuidedIntake", () => {
           item.outcomeIds.length > 0 || item.functionIds.length > 0 || item.componentIds.length > 0,
       ),
     ).toBe(true);
+  });
+
+  it("creates expansion scope items from guided expansion ideas instead of MVP items", () => {
+    const blueprint = composeBlueprintFromGuidedIntake(praxisGuidedInput);
+    const expansionNames = blueprint.expansionScope.items.map((item) => item.name).join("\n");
+
+    praxisGuidedInput.expansionIdeas.forEach((idea) => {
+      expect(expansionNames).toContain(idea);
+    });
+    praxisGuidedInput.mvpBoundary.forEach((mvpItem) => {
+      expect(expansionNames).not.toContain(mvpItem);
+    });
+  });
+
+  it("maps MVP items to the most relevant functions and components", () => {
+    const blueprint = composeBlueprintFromGuidedIntake(praxisGuidedInput);
+    const functionNamesById = new Map(blueprint.functions.map((fn) => [fn.id, fn.name]));
+    const componentNamesById = new Map(blueprint.components.map((component) => [component.id, component.name]));
+    const expectScopeReferences = (label: string, functionName: string, componentName: string) => {
+      const scopeItem = blueprint.mvpScope.items.find((item) => item.name.includes(label));
+
+      expect(scopeItem).toBeDefined();
+      expect(scopeItem?.functionIds.map((id) => functionNamesById.get(id))).toContain(functionName);
+      expect(scopeItem?.componentIds.map((id) => componentNamesById.get(id))).toContain(componentName);
+    };
+
+    expectScopeReferences("Capture raw feature idea", "Clarify intake assumptions", "Guided Intake Workspace");
+    expectScopeReferences(
+      "Generate connected framework structure",
+      "Compose governed framework blueprint",
+      "Blueprint Composer",
+    );
+    expectScopeReferences(
+      "Validate readiness and missing structure",
+      "Review readiness and governance",
+      "Readiness Review Surface",
+    );
+    expectScopeReferences("Export Markdown architecture brief", "Export implementation artifacts", "Export Panel");
+    expectScopeReferences("Export Codex Prompt", "Export implementation artifacts", "Export Panel");
+    expectScopeReferences("Export JSON blueprint", "Export implementation artifacts", "Export Panel");
+    expectScopeReferences("Export MVP Checklist", "Export implementation artifacts", "Export Panel");
+  });
+
+  it("derives meaningful invariant names from guided invariant text", () => {
+    const blueprint = composeBlueprintFromGuidedIntake(praxisGuidedInput);
+    const invariantNames = blueprint.invariants.map((invariant) => invariant.name);
+
+    expect(invariantNames).toEqual(
+      expect.arrayContaining([
+        "Preserve Praxis Program Logic",
+        "Separate MVP and Expansion",
+        "Components Map to Functions",
+        "Functions Map to Outcomes",
+      ]),
+    );
+    expect(invariantNames.some((name) => /^Must remain true/i.test(name))).toBe(false);
   });
 });
 

@@ -106,6 +106,13 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - Missing actors, flows, phases, governance, and decision principles produce high-severity completeness failures
 - Existing relational validation remains intact: function-outcome mapping, component-function mapping, dependency/reference checks, governance scope checks, and MVP/expansion separation still run
 
+## Export Outputs
+- Completed blueprints can be exported locally from the workspace without a backend
+- Markdown export creates a full architecture brief with intent, structure, governance, scope, decisions, risks, and validation summary
+- Codex prompt export turns the blueprint into an implementation prompt that preserves rules, invariants, MVP scope, and validation expectations
+- JSON export writes the current `ProjectBlueprint` as formatted JSON
+- MVP checklist export creates a practical checklist from MVP scope items, phases, required functions, and validation blockers
+
 ## Governance Policy Metadata
 - Rules and invariants carry explicit `policy` metadata in the domain schema
 - The app keeps camelCase internally and still accepts older stored entities without `policy` by deriving safe defaults during schema parsing

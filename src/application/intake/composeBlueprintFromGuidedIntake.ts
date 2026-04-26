@@ -19,7 +19,7 @@ import {
   createRule,
   createScopeItem,
 } from "@/domain/defaults";
-import type { ProjectBlueprint, ProjectFunction, Component, ScopeItem } from "@/domain/models";
+import type { Component, ProjectBlueprint, ProjectFunction, ScopeItem } from "@/domain/models";
 import { ProjectBlueprintSchema } from "@/schema";
 import { validateBlueprint } from "@/application/validation/validateBlueprint";
 
@@ -145,8 +145,225 @@ const createDistinctExpansionName = (idea: string, mvpNames: Set<string>): strin
 
 const mapAllIds = <T extends { id: string }>(items: T[]): string[] => items.map((item) => item.id);
 
+const optionalList = <T>(item: T | undefined): T[] => (item ? [item] : []);
+
+const includesAny = (value: string, terms: string[]): boolean => {
+  const normalized = value.toLowerCase();
+  return terms.some((term) => normalized.includes(term));
+};
+
+const isExportRelated = (value: string): boolean =>
+  includesAny(value, [
+    "codex",
+    "download",
+    "export",
+    "handoff",
+    "implementation artifact",
+    "json",
+    "markdown",
+    "mvp checklist",
+    "output",
+    "prompt",
+  ]);
+
+const isCaptureRelated = (value: string): boolean =>
+  includesAny(value, ["capture", "clarify", "feature idea", "guided intake", "intake", "raw feature", "raw idea"]);
+
+const isReadinessRelated = (value: string): boolean =>
+  includesAny(value, ["governance", "missing structure", "readiness", "review", "validate", "validation"]);
+
+const isStructureRelated = (value: string): boolean =>
+  includesAny(value, ["blueprint", "compose", "connected framework", "generate", "structure"]);
+
+type ScopeReferenceMapping = {
+  outcomeIds: string[];
+  functionIds: string[];
+  componentIds: string[];
+  rationale: string;
+};
+
+const mapMvpScopeReferences = (
+  item: string,
+  targets: {
+    primaryOutcomeId: string;
+    governanceOutcomeId: string;
+    clarifyFunction: ProjectFunction;
+    buildFunction: ProjectFunction;
+    readinessFunction: ProjectFunction;
+    intakeComponent: Component;
+    blueprintComponent: Component;
+    readinessComponent: Component;
+    exportFunction?: ProjectFunction;
+    exportComponent?: Component;
+  },
+): ScopeReferenceMapping => {
+  if (isExportRelated(item) && targets.exportFunction && targets.exportComponent) {
+    return {
+      outcomeIds: [targets.primaryOutcomeId, targets.governanceOutcomeId],
+      functionIds: [targets.exportFunction.id],
+      componentIds: [targets.exportComponent.id],
+      rationale: "This MVP item produces implementation artifacts through the export surface.",
+    };
+  }
+
+  if (isReadinessRelated(item)) {
+    return {
+      outcomeIds: [targets.governanceOutcomeId, targets.primaryOutcomeId],
+      functionIds: [targets.readinessFunction.id],
+      componentIds: [targets.readinessComponent.id],
+      rationale: "This MVP item depends on readiness review and visible governance.",
+    };
+  }
+
+  if (isCaptureRelated(item)) {
+    return {
+      outcomeIds: [targets.primaryOutcomeId, targets.governanceOutcomeId],
+      functionIds: [targets.clarifyFunction.id],
+      componentIds: [targets.intakeComponent.id],
+      rationale: "This MVP item starts with clarifying the raw idea and intake assumptions.",
+    };
+  }
+
+  if (isStructureRelated(item)) {
+    return {
+      outcomeIds: [targets.primaryOutcomeId],
+      functionIds: [targets.buildFunction.id],
+      componentIds: [targets.blueprintComponent.id],
+      rationale: "This MVP item depends on composing the connected governed framework.",
+    };
+  }
+
+  return {
+    outcomeIds: [targets.primaryOutcomeId],
+    functionIds: [targets.buildFunction.id],
+    componentIds: [targets.blueprintComponent.id],
+    rationale: "The guided intake identified this as part of the MVP boundary.",
+  };
+};
+
+const mapExpansionScopeReferences = (
+  item: string,
+  targets: {
+    governanceOutcomeId: string;
+    readinessFunction: ProjectFunction;
+    readinessComponent: Component;
+    exportFunction?: ProjectFunction;
+    exportComponent?: Component;
+  },
+): ScopeReferenceMapping => {
+  if (isExportRelated(item) && targets.exportFunction && targets.exportComponent) {
+    return {
+      outcomeIds: [targets.governanceOutcomeId],
+      functionIds: [targets.exportFunction.id],
+      componentIds: [targets.exportComponent.id],
+      rationale: "The guided intake marked this output idea as expansion, not first-build scope.",
+    };
+  }
+
+  return {
+    outcomeIds: [targets.governanceOutcomeId],
+    functionIds: [targets.readinessFunction.id],
+    componentIds: [targets.readinessComponent.id],
+    rationale: "The guided intake marked this as expansion, not first-build scope.",
+  };
+};
+
+const INVARIANT_STOP_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "are",
+  "be",
+  "by",
+  "can",
+  "cannot",
+  "each",
+  "every",
+  "existing",
+  "generated",
+  "is",
+  "must",
+  "not",
+  "of",
+  "prompts",
+  "remain",
+  "remains",
+  "should",
+  "the",
+  "to",
+  "true",
+  "weaken",
+  "with",
+]);
+
+const titleWord = (word: string): string => {
+  const normalized = word.toLowerCase();
+  if (normalized === "ai") return "AI";
+  if (normalized === "api") return "API";
+  if (normalized === "json") return "JSON";
+  if (normalized === "mvp") return "MVP";
+  if (normalized === "ui") return "UI";
+
+  return `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}`;
+};
+
+const significantInvariantWords = (statement: string): string[] =>
+  statement
+    .replace(/[^a-zA-Z0-9\s-]/g, " ")
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter(Boolean)
+    .filter((word) => !INVARIANT_STOP_WORDS.has(word.toLowerCase()));
+
+const titleFromWords = (words: string[]): string => words.map(titleWord).join(" ");
+
+const deriveInvariantName = (statement: string): string => {
+  const normalized = statement.toLowerCase();
+
+  if (normalized.includes("mvp") && normalized.includes("expansion") && normalized.includes("separate")) {
+    return "Separate MVP and Expansion";
+  }
+
+  if (normalized.includes("component") && normalized.includes("function") && normalized.includes("map")) {
+    return "Components Map to Functions";
+  }
+
+  if (normalized.includes("function") && normalized.includes("outcome") && normalized.includes("map")) {
+    return "Functions Map to Outcomes";
+  }
+
+  if (
+    normalized.includes("program logic") &&
+    (normalized.includes("must not weaken") || normalized.includes("preserve"))
+  ) {
+    return `Preserve ${titleFromWords(significantInvariantWords(statement).slice(0, 3))}`;
+  }
+
+  const significantWords = significantInvariantWords(statement);
+  if (significantWords.length > 0) {
+    return titleFromWords(significantWords.slice(0, 5));
+  }
+
+  return "Guided Invariant";
+};
+
+const uniqueGeneratedName = (baseName: string, usedNames: Set<string>): string => {
+  const cleanName = baseName.trim() || "Guided Invariant";
+  let candidate = cleanName;
+  let suffix = 2;
+
+  while (usedNames.has(candidate.toLowerCase())) {
+    candidate = `${cleanName} ${suffix}`;
+    suffix += 1;
+  }
+
+  usedNames.add(candidate.toLowerCase());
+  return candidate;
+};
+
 export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): ProjectBlueprint => {
   const guided = normalizeInput(input);
+  const hasExportMvpItems = guided.mvpBoundary.some(isExportRelated);
 
   const project = createProject({
     name: guided.projectName,
@@ -238,6 +455,14 @@ export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): Proj
   governanceDomain.responsibility = "Protect build readiness from hidden assumptions or blurred scope.";
   governanceDomain.outcomeIds = [governanceOutcome.id];
 
+  const outputDomain = hasExportMvpItems ? createDomain() : undefined;
+  if (outputDomain) {
+    outputDomain.name = "Implementation Output";
+    outputDomain.description = "Packages the governed blueprint into implementation-ready artifacts.";
+    outputDomain.responsibility = "Create handoff outputs without mixing MVP and expansion scope.";
+    outputDomain.outcomeIds = [primaryOutcome.id, governanceOutcome.id];
+  }
+
   const clarifyFunction = createProjectFunction();
   clarifyFunction.name = "Clarify intake assumptions";
   clarifyFunction.description = "Normalize the raw idea into explicit problem, user, outcome, and principles.";
@@ -264,6 +489,22 @@ export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): Proj
   readinessFunction.actorIds = [builderActor.id];
   readinessFunction.inputs = ["Blueprint structure", "Constraints", "Known risks"];
   readinessFunction.outputs = ["Readiness summary", "Decision records", "Failure modes"];
+
+  const exportFunction = outputDomain ? createProjectFunction() : undefined;
+  if (exportFunction && outputDomain) {
+    exportFunction.name = "Export implementation artifacts";
+    exportFunction.description = "Generate Markdown, Codex prompt, JSON, and MVP checklist outputs from the blueprint.";
+    exportFunction.domainIds = [outputDomain.id];
+    exportFunction.outcomeIds = [primaryOutcome.id, governanceOutcome.id];
+    exportFunction.actorIds = [builderActor.id, primaryActor.id];
+    exportFunction.inputs = ["Validated blueprint", "MVP scope", "Governance constraints"];
+    exportFunction.outputs = [
+      "Markdown architecture brief",
+      "Codex implementation prompt",
+      "Blueprint JSON",
+      "MVP checklist",
+    ];
+  }
 
   const intakeComponent = createComponent();
   intakeComponent.name = "Guided Intake Workspace";
@@ -292,6 +533,17 @@ export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): Proj
   readinessComponent.inputs = ["Validation state", "Decision records", "Failure modes"];
   readinessComponent.outputs = ["Human-readable readiness summary"];
 
+  const exportComponent = exportFunction && outputDomain ? createComponent() : undefined;
+  if (exportComponent && exportFunction && outputDomain) {
+    exportComponent.name = "Export Panel";
+    exportComponent.description = "Downloads implementation artifacts from the completed blueprint.";
+    exportComponent.purpose = "Turn the governed blueprint into practical local-first output files.";
+    exportComponent.domainIds = [outputDomain.id];
+    exportComponent.functionIds = [exportFunction.id];
+    exportComponent.inputs = ["Validated ProjectBlueprint"];
+    exportComponent.outputs = ["Markdown brief", "Codex prompt", "JSON export", "MVP checklist"];
+  }
+
   const intakeToComposer = createDependency();
   intakeToComposer.name = "Intake feeds composer";
   intakeToComposer.description = "The composer uses guided intake answers as its source material.";
@@ -306,17 +558,41 @@ export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): Proj
   composerToReadiness.sourceEntityId = blueprintComponent.id;
   composerToReadiness.targetEntityId = readinessComponent.id;
 
+  const readinessToExport = exportComponent ? createDependency() : undefined;
+  if (readinessToExport && exportComponent) {
+    readinessToExport.name = "Readiness review feeds export panel";
+    readinessToExport.description = "Implementation artifacts are generated from the reviewed blueprint state.";
+    readinessToExport.kind = "internal";
+    readinessToExport.sourceEntityId = readinessComponent.id;
+    readinessToExport.targetEntityId = exportComponent.id;
+  }
+
   intakeComponent.dependencyIds = [intakeToComposer.id];
   readinessComponent.dependencyIds = [composerToReadiness.id];
+  if (exportComponent && readinessToExport) {
+    exportComponent.dependencyIds = [readinessToExport.id];
+  }
 
   const guidedFlow = createFlow();
   guidedFlow.name = "Idea to governed blueprint";
   guidedFlow.description = "Transforms guided intake into a validated framework blueprint.";
   guidedFlow.stepSummary =
-    "Capture guided intake, compose connected structure, validate readiness, and preserve decisions.";
+    hasExportMvpItems
+      ? "Capture guided intake, compose connected structure, validate readiness, and export implementation artifacts."
+      : "Capture guided intake, compose connected structure, validate readiness, and preserve decisions.";
   guidedFlow.actorIds = [primaryActor.id, builderActor.id];
-  guidedFlow.functionIds = [clarifyFunction.id, buildFunction.id, readinessFunction.id];
-  guidedFlow.componentIds = [intakeComponent.id, blueprintComponent.id, readinessComponent.id];
+  guidedFlow.functionIds = [
+    clarifyFunction.id,
+    buildFunction.id,
+    readinessFunction.id,
+    ...optionalList(exportFunction?.id),
+  ];
+  guidedFlow.componentIds = [
+    intakeComponent.id,
+    blueprintComponent.id,
+    readinessComponent.id,
+    ...optionalList(exportComponent?.id),
+  ];
 
   const assumptionsRule = createRule();
   assumptionsRule.name = "Assumptions stay explicit";
@@ -339,9 +615,10 @@ export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): Proj
   scopeRule.policy.recommendation = "Keep first-build items separate from future expansion ideas.";
   scopeRule.policy.rationale = "Blurred scope makes implementation planning unreliable.";
 
+  const invariantNames = new Set<string>();
   const invariants = guided.mustRemainTrue.slice(0, 4).map((statement, index) => {
     const invariant = createInvariant();
-    invariant.name = index === 0 ? "Must remain true" : `Must remain true ${index + 1}`;
+    invariant.name = uniqueGeneratedName(deriveInvariantName(statement), invariantNames);
     invariant.description = statement;
     invariant.scope = "global";
     invariant.priority = index === 0 ? "critical" : "high";
@@ -371,6 +648,10 @@ export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): Proj
   blueprintComponent.guardrailIds = [mvpGuardrail.id];
   readinessComponent.invariantIds = mapAllIds(invariants);
   readinessComponent.guardrailIds = [mvpGuardrail.id, riskGuardrail.id];
+  if (exportComponent) {
+    exportComponent.invariantIds = mapAllIds(invariants);
+    exportComponent.guardrailIds = [mvpGuardrail.id, riskGuardrail.id];
+  }
 
   const mvpPhase = createPhase();
   mvpPhase.name = "MVP Foundation";
@@ -398,30 +679,76 @@ export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): Proj
     "Decision records explain the initial structure",
   ];
 
-  const functions: ProjectFunction[] = [clarifyFunction, buildFunction, readinessFunction];
-  const components: Component[] = [intakeComponent, blueprintComponent, readinessComponent];
+  const outputPhase = exportFunction && exportComponent ? createPhase() : undefined;
+  if (outputPhase && exportFunction && exportComponent) {
+    outputPhase.name = "Implementation Output";
+    outputPhase.description = "Prepare governed artifacts for implementation outside the app.";
+    outputPhase.order = 3;
+    outputPhase.objective = "Export concise artifacts that preserve rules, invariants, guardrails, and scope.";
+    outputPhase.functionIds = [exportFunction.id];
+    outputPhase.componentIds = [exportComponent.id];
+    outputPhase.exitCriteria = [
+      "Markdown architecture brief is available",
+      "Codex implementation prompt preserves governance",
+      "JSON and MVP checklist exports are available",
+    ];
+  }
 
-  const mvpItems = guided.mvpBoundary.map((item) =>
-    createMappedScopeItem({
+  const functions: ProjectFunction[] = [
+    clarifyFunction,
+    buildFunction,
+    readinessFunction,
+    ...optionalList(exportFunction),
+  ];
+  const components: Component[] = [
+    intakeComponent,
+    blueprintComponent,
+    readinessComponent,
+    ...optionalList(exportComponent),
+  ];
+
+  const mvpItems = guided.mvpBoundary.map((item) => {
+    const mapping = mapMvpScopeReferences(item, {
+      primaryOutcomeId: primaryOutcome.id,
+      governanceOutcomeId: governanceOutcome.id,
+      clarifyFunction,
+      buildFunction,
+      readinessFunction,
+      intakeComponent,
+      blueprintComponent,
+      readinessComponent,
+      exportFunction,
+      exportComponent,
+    });
+
+    return createMappedScopeItem({
       name: `MVP: ${item}`,
       description: `Belongs in the first buildable version of ${guided.projectName}.`,
-      outcomeIds: [primaryOutcome.id],
-      functionIds: [buildFunction.id],
-      componentIds: [blueprintComponent.id],
-      rationale: "The guided intake identified this as part of the MVP boundary.",
-    }),
-  );
+      outcomeIds: mapping.outcomeIds,
+      functionIds: mapping.functionIds,
+      componentIds: mapping.componentIds,
+      rationale: mapping.rationale,
+    });
+  });
   const mvpNames = new Set(mvpItems.map((item) => item.name.trim().toLowerCase()));
-  const expansionItems = guided.expansionIdeas.map((item) =>
-    createMappedScopeItem({
+  const expansionItems = guided.expansionIdeas.map((item) => {
+    const mapping = mapExpansionScopeReferences(item, {
+      governanceOutcomeId: governanceOutcome.id,
+      readinessFunction,
+      readinessComponent,
+      exportFunction,
+      exportComponent,
+    });
+
+    return createMappedScopeItem({
       name: createDistinctExpansionName(item, mvpNames),
       description: `A future enhancement after the MVP is governed and validated.`,
-      outcomeIds: [governanceOutcome.id],
-      functionIds: [readinessFunction.id],
-      componentIds: [readinessComponent.id],
-      rationale: "The guided intake marked this as expansion, not first-build scope.",
-    }),
-  );
+      outcomeIds: mapping.outcomeIds,
+      functionIds: mapping.functionIds,
+      componentIds: mapping.componentIds,
+      rationale: mapping.rationale,
+    });
+  });
 
   const failureModes = guided.knownRisks.map((risk, index) => {
     const failureMode = createFailureMode();
@@ -487,17 +814,17 @@ export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): Proj
   blueprint.outcomes = [primaryOutcome, governanceOutcome];
   blueprint.actors = [primaryActor, builderActor];
   blueprint.constraints = [contextConstraint, mvpConstraint, riskConstraint];
-  blueprint.domains = [contextDomain, frameworkDomain, governanceDomain];
+  blueprint.domains = [contextDomain, frameworkDomain, governanceDomain, ...optionalList(outputDomain)];
   blueprint.functions = functions;
   blueprint.components = components;
   blueprint.flows = [guidedFlow];
-  blueprint.dependencies = [intakeToComposer, composerToReadiness];
+  blueprint.dependencies = [intakeToComposer, composerToReadiness, ...optionalList(readinessToExport)];
   blueprint.rules = [assumptionsRule, scopeRule];
   blueprint.invariants = invariants;
   blueprint.decisionLogic = decisionLogic;
   blueprint.failureModes = failureModes;
   blueprint.guardrails = [mvpGuardrail, riskGuardrail];
-  blueprint.phases = [mvpPhase, readinessPhase];
+  blueprint.phases = [mvpPhase, readinessPhase, ...optionalList(outputPhase)];
   blueprint.mvpScope.summary = `First build: ${joinList(guided.mvpBoundary)}.`;
   blueprint.mvpScope.successDefinition = `The MVP helps ${guided.targetUser} reach ${guided.intendedOutcome} with explicit governance.`;
   blueprint.mvpScope.items = mvpItems;

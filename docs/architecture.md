@@ -72,6 +72,16 @@ The generated structure includes a primary and secondary actor, core domains, co
 
 `BlueprintService.createProject(...)` composes the raw project, completes missing structure, and then saves through the stable path. `BlueprintService.createEmptyProject(...)` keeps the manual shell-only path for users who explicitly want to fill the architecture model themselves.
 
+## Export Outputs
+Export generation is application-layer formatting on top of the current `ProjectBlueprint`. It does not write storage, call a backend, or alter the blueprint.
+
+- `exportBlueprintMarkdown(...)` creates the human-readable architecture brief
+- `exportCodexPrompt(...)` creates an implementation prompt that carries governance constraints forward
+- `exportBlueprintJson(...)` serializes the current schema-valid blueprint as formatted JSON
+- `exportMvpChecklist(...)` creates a checklist from MVP items, phases, functions, and validation blockers
+
+The UI download panel only turns those local strings into files with project-slug filenames. Export behavior remains separate from validation, stable save review, memory, revision history, and quarantine recovery.
+
 ## Persistence Strategy
 The app uses a repository interface with a localStorage adapter. That keeps persistence replaceable so a future database layer can be added without rewriting domain, schema, or validation code.
 

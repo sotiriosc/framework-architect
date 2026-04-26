@@ -6,6 +6,7 @@ import { CollectionEditor } from "@/ui/components/CollectionEditor";
 import { IntentOutcomeEditor } from "@/ui/components/IntentOutcomeEditor";
 import { MemoryViewer } from "@/ui/components/MemoryViewer";
 import { BlueprintViewer } from "@/ui/components/BlueprintViewer";
+import { ExportPanel } from "@/ui/components/ExportPanel";
 import { GuidedBlueprintWizard } from "@/ui/components/GuidedBlueprintWizard";
 import { ProjectForm } from "@/ui/components/ProjectForm";
 import { ProjectDashboard } from "@/ui/components/ProjectDashboard";
@@ -591,6 +592,7 @@ const App = () => {
                 validation={workspace.draftBlueprint.validation}
                 projectStatus={workspace.draftBlueprint.project.status}
               />
+              <ExportPanel blueprint={workspace.draftBlueprint} />
               <RevisionHistoryPanel
                 revisions={workspace.projectRevisions}
                 selectedRevision={
