@@ -34,7 +34,7 @@ const createTestStorage = (): StorageLike => {
 describe("validateBlueprint", () => {
   it("does not treat a raw-idea-only project as build-ready", () => {
     const service = new BlueprintService(new LocalProjectRepository(createTestStorage()));
-    const created = service.createProject({
+    const created = service.createEmptyProject({
       name: "Raw Idea Only",
       rawIdea: "Build a tiny tool from a raw idea before the architecture is filled in.",
     });

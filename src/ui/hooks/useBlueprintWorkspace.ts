@@ -269,7 +269,16 @@ export const useBlueprintWorkspace = () => {
     });
   };
 
-  const createProject = () => {
+  const createProjectFromDraft = (options: {
+    create: (input: {
+      name: string;
+      rawIdea: string;
+      corePhilosophy?: string;
+      invariantPriorities?: string[];
+    }) => ProjectBlueprint;
+    successMessage: string;
+    errorMessage: string;
+  }) => {
     if (!state.createDraft.name.trim() || !state.createDraft.rawIdea.trim()) {
       setState((current) => ({
         ...current,
@@ -279,7 +288,7 @@ export const useBlueprintWorkspace = () => {
     }
 
     try {
-      const created = blueprintService.createProject({
+      const created = options.create({
         name: state.createDraft.name.trim(),
         rawIdea: state.createDraft.rawIdea.trim(),
         corePhilosophy: state.createDraft.corePhilosophy.trim(),
@@ -293,7 +302,7 @@ export const useBlueprintWorkspace = () => {
         createDraft: defaultCreateDraft,
         workspaceFeedback: {
           tone: "success",
-          message: "Project blueprint created.",
+          message: options.successMessage,
         },
         pendingChangeReview: null,
         error: null,
@@ -301,9 +310,25 @@ export const useBlueprintWorkspace = () => {
     } catch (error) {
       setState((current) => ({
         ...current,
-        error: error instanceof Error ? error.message : "Unable to create project.",
+        error: error instanceof Error ? error.message : options.errorMessage,
       }));
     }
+  };
+
+  const createProject = () => {
+    createProjectFromDraft({
+      create: (input) => blueprintService.createProject(input),
+      successMessage: "Framework created and opened in the full workspace.",
+      errorMessage: "Unable to create framework.",
+    });
+  };
+
+  const createEmptyProject = () => {
+    createProjectFromDraft({
+      create: (input) => blueprintService.createEmptyProject(input),
+      successMessage: "Empty blueprint created and opened for manual architecture work.",
+      errorMessage: "Unable to create empty blueprint.",
+    });
   };
 
   const selectProject = (projectId: string | null) => {
@@ -843,6 +868,7 @@ export const useBlueprintWorkspace = () => {
   return {
     ...state,
     createProject,
+    createEmptyProject,
     selectProject,
     selectRevision,
     setRevisionCompareMode,

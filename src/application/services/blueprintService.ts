@@ -238,6 +238,32 @@ export class BlueprintService {
     return source === "manualCheckpoint" ? "Manual checkpoint." : "Manual blueprint update.";
   }
 
+  private composeRawIdeaBlueprint(input: {
+    name: string;
+    rawIdea: string;
+    corePhilosophy?: string;
+    invariantPriorities?: string[];
+  }): ProjectBlueprint {
+    const extracted = extractIntentFromRawIdea(input.rawIdea);
+    const project = createProject({
+      name: input.name,
+      rawIdea: input.rawIdea,
+      corePhilosophy: input.corePhilosophy,
+    });
+    project.invariantPriorities = input.invariantPriorities ?? [];
+
+    const intent = createIntent(extracted.summary);
+    intent.problemStatement = extracted.problemStatement;
+    intent.targetAudience = extracted.targetAudience;
+    intent.valueHypothesis = extracted.valueHypothesis;
+
+    const outcome = createOutcome(extracted.outcomeName);
+    outcome.description = extracted.outcomeDescription;
+    outcome.successMetric = "Blueprint is explicit enough for a builder to start implementation.";
+
+    return createEmptyBlueprint(project, intent, outcome);
+  }
+
   private executeStableBoundaryAction(input: {
     candidate: ProjectBlueprint;
     reason: string;
@@ -394,25 +420,18 @@ export class BlueprintService {
     corePhilosophy?: string;
     invariantPriorities?: string[];
   }): ProjectBlueprint {
-    const extracted = extractIntentFromRawIdea(input.rawIdea);
-    const project = createProject({
-      name: input.name,
-      rawIdea: input.rawIdea,
-      corePhilosophy: input.corePhilosophy,
-    });
-    project.invariantPriorities = input.invariantPriorities ?? [];
+    const blueprint = completeBlueprintStructure(this.composeRawIdeaBlueprint(input));
+    return this.saveBlueprint(blueprint, "Initial framework created from raw idea.");
+  }
 
-    const intent = createIntent(extracted.summary);
-    intent.problemStatement = extracted.problemStatement;
-    intent.targetAudience = extracted.targetAudience;
-    intent.valueHypothesis = extracted.valueHypothesis;
-
-    const outcome = createOutcome(extracted.outcomeName);
-    outcome.description = extracted.outcomeDescription;
-    outcome.successMetric = "Blueprint is explicit enough for a builder to start implementation.";
-
-    const blueprint = createEmptyBlueprint(project, intent, outcome);
-    return this.saveBlueprint(blueprint, "Initial project created from raw idea.");
+  createEmptyProject(input: {
+    name: string;
+    rawIdea: string;
+    corePhilosophy?: string;
+    invariantPriorities?: string[];
+  }): ProjectBlueprint {
+    const blueprint = this.composeRawIdeaBlueprint(input);
+    return this.saveBlueprint(blueprint, "Initial empty blueprint created from raw idea.");
   }
 
   createProjectFromGuidedIntake(input: GuidedIntakeInput): ProjectBlueprint {

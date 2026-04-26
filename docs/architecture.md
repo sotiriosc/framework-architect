@@ -57,7 +57,7 @@ Guided intake is an application-layer producer of normal blueprints. It does not
 Because guided output is saved through `BlueprintService`, it inherits schema parsing, stable change review, local-first persistence, memory snapshot creation, and revision recording.
 
 ## Completion Engine
-The completion engine is for projects that started from the raw-idea flow and therefore may only contain project, intent, and an initial outcome.
+The completion engine is used by the default raw-idea create flow so new projects start as populated framework blueprints instead of empty shells. The old shell-only behavior remains available as an advanced/manual `Create empty blueprint` action.
 
 - `completeBlueprintStructure(...)` clones the input blueprint
 - It checks which blueprint sections are empty or incomplete
@@ -69,6 +69,8 @@ The completion engine is for projects that started from the raw-idea flow and th
 The generated structure includes a primary and secondary actor, core domains, core functions, mapped components, a core flow, internal dependencies, rules, invariants, guardrails, phases, MVP scope items, expansion items, decision records, and failure modes.
 
 `BlueprintService.completeMissingStructure(...)` wraps this engine and then calls the existing stable save path with the reason `Completed missing framework structure.` That means completion still participates in change review, memory capture, revision history, and local persistence rather than writing around them.
+
+`BlueprintService.createProject(...)` composes the raw project, completes missing structure, and then saves through the stable path. `BlueprintService.createEmptyProject(...)` keeps the manual shell-only path for users who explicitly want to fill the architecture model themselves.
 
 ## Persistence Strategy
 The app uses a repository interface with a localStorage adapter. That keeps persistence replaceable so a future database layer can be added without rewriting domain, schema, or validation code.

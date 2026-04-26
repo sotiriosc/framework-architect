@@ -92,7 +92,8 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - Guided creation still saves through `BlueprintService`, so schema parsing, validation, stable save review, local persistence, memory snapshots, and revision history are preserved
 
 ## Deterministic Completion Engine
-- Raw-idea project creation can intentionally start small with project, intent, and outcome
+- Raw-idea project creation now completes missing structure by default so new users do not start from an empty shell
+- Advanced/manual creation is still available through `Create empty blueprint` for users who want to model every section themselves
 - `completeBlueprintStructure(...)` fills missing blueprint sections without replacing existing user-authored entities
 - Completion is conservative: empty collections are populated, empty MVP/expansion summaries are filled, and existing content is left in place
 - Generated structure includes actors, domains, functions, components, flows, dependencies, rules, invariants, guardrails, phases, MVP scope, expansion scope, decision records, and failure modes

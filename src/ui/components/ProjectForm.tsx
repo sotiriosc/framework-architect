@@ -15,6 +15,7 @@ type ProjectFormProps = {
   createDraft: CreateProjectDraft;
   onCreateDraftChange: (draft: CreateProjectDraft) => void;
   onCreateProject: () => void;
+  onCreateEmptyProject: () => void;
   project: Project | null;
   onProjectChange: (project: Project) => void;
 };
@@ -39,6 +40,7 @@ export const ProjectForm = ({
   createDraft,
   onCreateDraftChange,
   onCreateProject,
+  onCreateEmptyProject,
   project,
   onProjectChange,
 }: ProjectFormProps) => (
@@ -81,7 +83,10 @@ export const ProjectForm = ({
       </div>
       <div className="toolbar">
         <button type="button" onClick={onCreateProject}>
-          Create project blueprint
+          Create framework
+        </button>
+        <button type="button" className="button-secondary" onClick={onCreateEmptyProject}>
+          Create empty blueprint
         </button>
       </div>
     </SectionCard>

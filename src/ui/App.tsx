@@ -206,6 +206,7 @@ const App = () => {
             createDraft={workspace.createDraft}
             onCreateDraftChange={workspace.updateCreateDraft}
             onCreateProject={workspace.createProject}
+            onCreateEmptyProject={workspace.createEmptyProject}
             project={workspace.draftBlueprint?.project ?? null}
             onProjectChange={(project) =>
               workspace.updateDraftBlueprint((current) => ({
