@@ -612,7 +612,12 @@ const App = () => {
                 projectStatus={workspace.draftBlueprint.project.status}
                 relationOptions={relationOptions}
               />
-              <BlueprintQualityPanel blueprint={workspace.draftBlueprint} relationOptions={relationOptions} />
+              <BlueprintQualityPanel
+                blueprint={workspace.draftBlueprint}
+                relationOptions={relationOptions}
+                onApplySafeFixes={workspace.applySafeQualityFixes}
+                onApplyFix={workspace.applyQualityFix}
+              />
               <ExportPanel blueprint={workspace.draftBlueprint} />
               <RevisionHistoryPanel
                 revisions={workspace.projectRevisions}

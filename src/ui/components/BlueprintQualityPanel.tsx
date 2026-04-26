@@ -4,12 +4,18 @@ import {
   type BlueprintQualityIssue,
   type BlueprintQualitySectionScores,
 } from "@/application/review/buildBlueprintQualityReview";
+import {
+  buildBlueprintImprovementPlan,
+  type BlueprintImprovementFix,
+} from "@/application/review/buildBlueprintImprovementPlan";
 import { SectionCard } from "@/ui/components/SectionCard";
 import { formatRelationLabel, type RelationOptionGroups } from "@/ui/relationOptions";
 
 type BlueprintQualityPanelProps = {
   blueprint: ProjectBlueprint;
   relationOptions?: RelationOptionGroups;
+  onApplySafeFixes?: () => void;
+  onApplyFix?: (fixId: string) => void;
 };
 
 const sectionLabel = (key: keyof BlueprintQualitySectionScores): string =>
@@ -27,8 +33,65 @@ const relatedLabels = (issue: BlueprintQualityIssue, relationOptions: RelationOp
     : issue.relatedEntityIds.join(", ");
 };
 
-export const BlueprintQualityPanel = ({ blueprint, relationOptions }: BlueprintQualityPanelProps) => {
+const relatedFixLabels = (
+  fix: BlueprintImprovementFix,
+  relationOptions: RelationOptionGroups | undefined,
+): string => {
+  if (fix.relatedEntityIds.length === 0) {
+    return "";
+  }
+
+  return relationOptions
+    ? fix.relatedEntityIds.map((id) => formatRelationLabel(id, relationOptions)).join(", ")
+    : fix.relatedEntityIds.join(", ");
+};
+
+const fixSectionTitle = (label: string, fixes: BlueprintImprovementFix[]): string =>
+  `${label} (${fixes.length})`;
+
+export const BlueprintQualityPanel = ({
+  blueprint,
+  relationOptions,
+  onApplySafeFixes,
+  onApplyFix,
+}: BlueprintQualityPanelProps) => {
   const review = buildBlueprintQualityReview(blueprint);
+  const improvementPlan = buildBlueprintImprovementPlan(blueprint);
+
+  const renderFixes = (input: {
+    label: string;
+    fixes: BlueprintImprovementFix[];
+    canApply: boolean;
+  }) => (
+    <details className="quality-detail" open={input.canApply}>
+      <summary>{fixSectionTitle(input.label, input.fixes)}</summary>
+      {input.fixes.length === 0 ? (
+        <p className="muted">No {input.label.toLowerCase()} currently recommended.</p>
+      ) : (
+        <ul className="stacked-list">
+          {input.fixes.map((fix) => (
+            <li key={fix.id} className="stacked-list__item">
+              <div className="tag-row">
+                <span>{fix.category}</span>
+                <span>{fix.safety}</span>
+                <span>{fix.expectedImpact}</span>
+              </div>
+              <strong>{fix.title}</strong>
+              <p>{fix.description}</p>
+              {fix.relatedEntityIds.length > 0 ? (
+                <p className="muted">related: {relatedFixLabels(fix, relationOptions)}</p>
+              ) : null}
+              {input.canApply && onApplyFix ? (
+                <button type="button" className="button-secondary" onClick={() => onApplyFix(fix.id)}>
+                  Apply Fix
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+    </details>
+  );
 
   return (
     <SectionCard title="Blueprint quality" description="A deterministic review of usefulness beyond validation.">
@@ -45,6 +108,22 @@ export const BlueprintQualityPanel = ({ blueprint, relationOptions }: BlueprintQ
           <strong>{review.nextBestFix?.title ?? "No quality fixes pending"}</strong>
           <p>{review.nextBestFix?.recommendation ?? "Keep using stable review when making structural changes."}</p>
         </div>
+      </div>
+
+      <div className="quality-improvement-plan">
+        <div>
+          <span className="eyebrow">Guided fixes</span>
+          <strong>{improvementPlan.recommendedFirstAction?.title ?? "No guided fixes pending"}</strong>
+          <p>{improvementPlan.planSummary}</p>
+          <p className="muted">Estimated impact: {improvementPlan.estimatedImpactScore}/100</p>
+        </div>
+        <button
+          type="button"
+          disabled={improvementPlan.safeFixes.length === 0 || !onApplySafeFixes}
+          onClick={onApplySafeFixes}
+        >
+          Apply Safe Fixes
+        </button>
       </div>
 
       <div className="quality-section-grid">
@@ -93,6 +172,24 @@ export const BlueprintQualityPanel = ({ blueprint, relationOptions }: BlueprintQ
           </ul>
         )}
       </details>
+
+      {renderFixes({
+        label: "Safe fixes",
+        fixes: improvementPlan.safeFixes,
+        canApply: true,
+      })}
+
+      {renderFixes({
+        label: "Manual-review fixes",
+        fixes: improvementPlan.manualFixes,
+        canApply: false,
+      })}
+
+      {renderFixes({
+        label: "Risky fixes",
+        fixes: improvementPlan.riskyFixes,
+        canApply: false,
+      })}
 
       <details className="quality-detail">
         <summary>Template fit</summary>

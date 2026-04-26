@@ -43,6 +43,10 @@ import {
 } from "@/application/intake/composeBlueprintFromGuidedIntake";
 import { completeBlueprintStructure } from "@/application/intake/completeBlueprintStructure";
 import { extractIntentFromRawIdea } from "@/application/intake/extractIntent";
+import {
+  applyBlueprintImprovementFix,
+  applySafeBlueprintImprovementFixes,
+} from "@/application/review/applyBlueprintImprovementFixes";
 import { validateBlueprint } from "@/application/validation/validateBlueprint";
 
 const cloneBlueprint = (blueprint: ProjectBlueprint): ProjectBlueprint => structuredClone(blueprint);
@@ -442,6 +446,18 @@ export class BlueprintService {
   completeMissingStructure(project: ProjectBlueprint): ProjectBlueprint {
     const completed = completeBlueprintStructure(project);
     return this.saveBlueprint(completed, "Completed missing framework structure.");
+  }
+
+  applySafeQualityFixes(project: ProjectBlueprint): ProjectBlueprint {
+    const fixed = applySafeBlueprintImprovementFixes(project);
+    fixed.validation = validateBlueprint(fixed);
+    return this.saveBlueprint(fixed, "Applied safe blueprint quality fixes.");
+  }
+
+  applyQualityFix(project: ProjectBlueprint, fixId: string): ProjectBlueprint {
+    const fixed = applyBlueprintImprovementFix(project, fixId);
+    fixed.validation = validateBlueprint(fixed);
+    return this.saveBlueprint(fixed, `Applied blueprint quality fix: ${fixId}`);
   }
 
   listQuarantinedPayloads(): QuarantinedPayload[] {

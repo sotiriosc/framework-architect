@@ -1,4 +1,5 @@
 import type { ProjectBlueprint } from "@/domain/models";
+import { buildBlueprintImprovementPlan } from "@/application/review/buildBlueprintImprovementPlan";
 import { buildBlueprintQualityReview } from "@/application/review/buildBlueprintQualityReview";
 import { describeFrameworkTemplateForBlueprint } from "@/application/templates/frameworkTemplates";
 import {
@@ -29,6 +30,10 @@ export const exportBlueprintMarkdown = (
   const template = describeFrameworkTemplateForBlueprint(blueprint);
   const includeQualityReview = options.includeQualityReview ?? true;
   const qualityReview = includeQualityReview ? buildBlueprintQualityReview(blueprint) : null;
+  const improvementPlan =
+    qualityReview && (qualityReview.grade !== "excellent" || qualityReview.issues.length > 0)
+      ? buildBlueprintImprovementPlan(blueprint)
+      : null;
 
   return `${joinBlocks([
     `# ${blueprint.project.name}`,
@@ -83,6 +88,16 @@ export const exportBlueprintMarkdown = (
           qualityReview.nextBestFix
             ? `Next best fix: ${qualityReview.nextBestFix.title} - ${qualityReview.nextBestFix.recommendation}`
             : "Next best fix: No quality fixes pending.",
+        ])
+      : "",
+    improvementPlan
+      ? joinBlocks([
+          "## Improvement Plan",
+          improvementPlan.planSummary,
+          improvementPlan.recommendedFirstAction
+            ? `Recommended first action: ${improvementPlan.recommendedFirstAction.title} - ${improvementPlan.recommendedFirstAction.description}`
+            : "Recommended first action: No guided fixes pending.",
+          `Safe fixes: ${improvementPlan.safeFixes.length}. Manual review: ${improvementPlan.manualFixes.length}. Risky: ${improvementPlan.riskyFixes.length}.`,
         ])
       : "",
   ])}\n`;

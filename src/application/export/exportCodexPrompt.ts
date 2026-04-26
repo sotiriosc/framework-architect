@@ -1,4 +1,5 @@
 import type { ProjectBlueprint } from "@/domain/models";
+import { buildBlueprintImprovementPlan } from "@/application/review/buildBlueprintImprovementPlan";
 import { buildBlueprintQualityReview } from "@/application/review/buildBlueprintQualityReview";
 import { describeFrameworkTemplateForBlueprint } from "@/application/templates/frameworkTemplates";
 import {
@@ -20,8 +21,12 @@ export const exportCodexPrompt = (blueprint: ProjectBlueprint): string => {
   const lookup = createNameLookup(blueprint);
   const template = describeFrameworkTemplateForBlueprint(blueprint);
   const qualityReview = buildBlueprintQualityReview(blueprint);
+  const improvementPlan = buildBlueprintImprovementPlan(blueprint);
   const qualityWarnings = qualityReview.issues.filter(
     (issue) => issue.impact === "high" || issue.type === "export-readiness" || issue.type === "template-fit",
+  );
+  const unresolvedQualityFixes = [...improvementPlan.manualFixes, ...improvementPlan.riskyFixes].filter(
+    (fix) => fix.expectedImpact !== "low" || fix.safety === "manual-review",
   );
 
   return `${joinBlocks([
@@ -72,6 +77,16 @@ export const exportCodexPrompt = (blueprint: ProjectBlueprint): string => {
           bulletList(
             qualityWarnings.slice(0, 5),
             (issue) => `${issue.title}: ${issue.recommendation}`,
+          ),
+        ])
+      : "",
+    unresolvedQualityFixes.length > 0
+      ? joinBlocks([
+          "## Manual Quality Warnings",
+          "These quality improvements require human judgment and should not be bypassed silently:",
+          bulletList(
+            unresolvedQualityFixes.slice(0, 5),
+            (fix) => `${fix.title}: ${fix.description}`,
           ),
         ])
       : "",

@@ -448,6 +448,26 @@ textarea {
   margin-top: 0.25rem;
 }
 
+.quality-improvement-plan {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: start;
+  border: 1px solid #d7d6ce;
+  background: #fffdf9;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.quality-improvement-plan strong {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.quality-improvement-plan p {
+  margin: 0.35rem 0 0;
+}
+
 .quality-section-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));

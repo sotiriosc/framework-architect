@@ -150,4 +150,27 @@ describe("blueprint exports", () => {
     expect(weakPrompt).toContain("## Quality Warnings");
     expect(weakPrompt).toContain("MVP and expansion overlap");
   });
+
+  it("includes an improvement plan in markdown when quality is not excellent", () => {
+    const weakBlueprint = composeBlueprintFromGuidedIntake(praxisGuidedInput);
+    weakBlueprint.invariants[0]!.name = "Must remain true 2";
+    const markdown = exportBlueprintMarkdown(weakBlueprint);
+
+    expect(markdown).toContain("## Improvement Plan");
+    expect(markdown).toContain("Recommended first action");
+  });
+
+  it("includes unresolved manual quality warnings in Codex prompts when relevant", () => {
+    const weakBlueprint = composeBlueprintFromGuidedIntake(praxisGuidedInput);
+    const sharedFunctionId = weakBlueprint.functions[0]!.id;
+    const sharedComponentId = weakBlueprint.components[0]!.id;
+    weakBlueprint.mvpScope.items.forEach((item) => {
+      item.functionIds = [sharedFunctionId];
+      item.componentIds = [sharedComponentId];
+    });
+    const prompt = exportCodexPrompt(weakBlueprint);
+
+    expect(prompt).toContain("## Manual Quality Warnings");
+    expect(prompt).toContain("Review repetitive MVP mappings");
+  });
 });

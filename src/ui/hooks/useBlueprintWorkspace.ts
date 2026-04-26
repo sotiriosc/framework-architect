@@ -813,6 +813,40 @@ export const useBlueprintWorkspace = () => {
     }
   };
 
+  const applySafeQualityFixes = () => {
+    if (!state.draftBlueprint) {
+      return;
+    }
+
+    try {
+      const saved = blueprintService.applySafeQualityFixes(structuredClone(state.draftBlueprint));
+      applyCommittedStableSave(saved, "Safe blueprint quality fixes applied.");
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        workspaceFeedback: null,
+        error: error instanceof Error ? error.message : "Unable to apply safe blueprint quality fixes.",
+      }));
+    }
+  };
+
+  const applyQualityFix = (fixId: string) => {
+    if (!state.draftBlueprint) {
+      return;
+    }
+
+    try {
+      const saved = blueprintService.applyQualityFix(structuredClone(state.draftBlueprint), fixId);
+      applyCommittedStableSave(saved, `Blueprint quality fix applied: ${fixId}.`);
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        workspaceFeedback: null,
+        error: error instanceof Error ? error.message : `Unable to apply blueprint quality fix: ${fixId}.`,
+      }));
+    }
+  };
+
   const confirmPendingChangeReview = () => {
     if (!state.pendingChangeReview) {
       return;
@@ -901,6 +935,8 @@ export const useBlueprintWorkspace = () => {
     saveCurrentProject,
     createManualCheckpoint,
     completeMissingStructure,
+    applySafeQualityFixes,
+    applyQualityFix,
     confirmPendingChangeReview,
     dismissPendingChangeReview,
     reextractIntent,
