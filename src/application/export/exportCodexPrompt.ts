@@ -1,4 +1,5 @@
 import type { ProjectBlueprint } from "@/domain/models";
+import { describeFrameworkTemplateForBlueprint } from "@/application/templates/frameworkTemplates";
 import {
   bulletList,
   createNameLookup,
@@ -16,6 +17,7 @@ import {
 
 export const exportCodexPrompt = (blueprint: ProjectBlueprint): string => {
   const lookup = createNameLookup(blueprint);
+  const template = describeFrameworkTemplateForBlueprint(blueprint);
 
   return `${joinBlocks([
     `# Codex Implementation Prompt: ${blueprint.project.name}`,
@@ -23,6 +25,8 @@ export const exportCodexPrompt = (blueprint: ProjectBlueprint): string => {
     joinBlocks([
       "## Objective",
       `Build the MVP described by this governed ProjectBlueprint. Preserve the architecture, scope boundaries, and validation expectations while turning the blueprint into working implementation artifacts.`,
+      `Framework template: ${template.label} - ${template.description}`,
+      `Template emphasis: ${template.promptGuidance}`,
       `Raw idea: ${blueprint.project.rawIdea}`,
       `Intent: ${blueprint.intent.summary}`,
       `Problem: ${textOrFallback(blueprint.intent.problemStatement)}`,

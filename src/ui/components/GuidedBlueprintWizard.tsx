@@ -1,11 +1,19 @@
 import type { ChangeEvent, FormEvent } from "react";
 
+import {
+  frameworkTemplates,
+  getFrameworkTemplate,
+  isFrameworkTemplateId,
+  resolveFrameworkTemplate,
+  type FrameworkTemplateId,
+} from "@/application/templates/frameworkTemplates";
 import { SectionCard } from "@/ui/components/SectionCard";
 
 export type GuidedIntakeDraft = {
   rawIdea: string;
   projectName: string;
   frameworkType: string;
+  customFrameworkType: string;
   targetUser: string;
   problem: string;
   intendedOutcome: string;
@@ -29,7 +37,7 @@ const updateDraft =
     onChange: (next: GuidedIntakeDraft) => void,
     key: keyof GuidedIntakeDraft,
   ) =>
-  (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     onChange({
       ...draft,
       [key]: event.target.value,
@@ -45,6 +53,34 @@ export const GuidedBlueprintWizard = ({
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     onCreate();
+  };
+  const selectedTemplateValue = isFrameworkTemplateId(draft.frameworkType)
+    ? draft.frameworkType
+    : draft.frameworkType.trim()
+      ? "custom"
+      : "generic-framework";
+  const selectedTemplate =
+    selectedTemplateValue === "custom"
+      ? resolveFrameworkTemplate(draft.customFrameworkType || draft.frameworkType)
+      : getFrameworkTemplate(selectedTemplateValue as FrameworkTemplateId);
+  const helperDescription =
+    selectedTemplateValue === "custom"
+      ? `Closest template: ${selectedTemplate.label}. ${selectedTemplate.description}`
+      : selectedTemplate.description;
+  const updateTemplateSelection = (event: ChangeEvent<HTMLSelectElement>) => {
+    const value = event.target.value as FrameworkTemplateId | "custom";
+    onDraftChange({
+      ...draft,
+      frameworkType: value === "custom" ? draft.customFrameworkType : value,
+      customFrameworkType: value === "custom" ? draft.customFrameworkType : "",
+    });
+  };
+  const updateCustomFrameworkType = (event: ChangeEvent<HTMLInputElement>) => {
+    onDraftChange({
+      ...draft,
+      frameworkType: event.target.value,
+      customFrameworkType: event.target.value,
+    });
   };
 
   return (
@@ -63,14 +99,28 @@ export const GuidedBlueprintWizard = ({
             />
           </label>
           <label className="field">
-            <span>Framework type</span>
-            <input
-              type="text"
-              value={draft.frameworkType}
-              onChange={updateDraft(draft, onDraftChange, "frameworkType")}
-              placeholder="Decision framework, onboarding system, operating model"
-            />
+            <span>Framework template</span>
+            <select value={selectedTemplateValue} onChange={updateTemplateSelection}>
+              {frameworkTemplates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.label}
+                </option>
+              ))}
+              <option value="custom">Custom type</option>
+            </select>
+            <p className="muted">{helperDescription}</p>
           </label>
+          {selectedTemplateValue === "custom" ? (
+            <label className="field">
+              <span>Custom framework type</span>
+              <input
+                type="text"
+                value={draft.customFrameworkType || draft.frameworkType}
+                onChange={updateCustomFrameworkType}
+                placeholder="Decision framework, onboarding system, operating model"
+              />
+            </label>
+          ) : null}
           <label className="field field--full">
             <span>Raw idea</span>
             <textarea

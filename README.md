@@ -23,6 +23,7 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - First-class per-project revision history with structural diffs
 - Validation rules for structural governance checks
 - Guided intake that turns structured project answers into a populated governed blueprint
+- Template-guided generation for software apps, Praxis features, business systems, coaching systems, content/brand frameworks, books/white papers, SOP/workflows, and generic frameworks
 - Deterministic missing-structure completion for raw-idea projects
 - Minimal UI for project creation, intent/outcome editing, blueprint viewing, memory viewing, and validation review
 - A seed example blueprint for inspection and iteration
@@ -86,10 +87,18 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 
 ## Guided Blueprint Creation
 - The guided builder collects raw idea, project name, framework type, target user, problem, intended outcome, principles, non-negotiables, MVP boundary, expansion ideas, and known risks
+- Framework type is resolved through a local deterministic template registry, with a custom type field that falls back to closest-template keyword matching
 - `composeBlueprintFromGuidedIntake(...)` converts those answers into a normal `ProjectBlueprint`
 - The composer uses the existing domain factory functions and creates connected outcomes, actors, domains, functions, components, flows, governance, scope, decisions, and failure modes
+- Selected templates shape generated domains, functions, components, rules, invariants, guardrails, phases, MVP items, expansion items, and failure modes while preserving the user's intake text
 - Generated MVP and expansion items reference valid outcome/function/component IDs so schema validation and relational validation remain meaningful
 - Guided creation still saves through `BlueprintService`, so schema parsing, validation, stable save review, local persistence, memory snapshots, and revision history are preserved
+
+## Framework Templates
+- Template definitions live in `src/application/templates/frameworkTemplates.ts`
+- Supported templates are Software App, Praxis Feature, Business System, Coaching System, Content / Brand Framework, Book / White Paper, SOP / Workflow, and Generic Framework
+- Template inference is local and deterministic; there are no external AI calls or backend dependencies
+- Template metadata is surfaced in project cards and exports without changing the core `ProjectBlueprint` schema
 
 ## Deterministic Completion Engine
 - Raw-idea project creation now completes missing structure by default so new users do not start from an empty shell
@@ -109,7 +118,7 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 ## Export Outputs
 - Completed blueprints can be exported locally from the workspace without a backend
 - Markdown export creates a full architecture brief with intent, structure, governance, scope, decisions, risks, and validation summary
-- Codex prompt export turns the blueprint into an implementation prompt that preserves rules, invariants, MVP scope, and validation expectations
+- Codex prompt export turns the blueprint into an implementation prompt that preserves rules, invariants, MVP scope, validation expectations, and template-specific implementation emphasis
 - JSON export writes the current `ProjectBlueprint` as formatted JSON
 - MVP checklist export creates a practical checklist from MVP scope items, phases, required functions, and validation blockers
 

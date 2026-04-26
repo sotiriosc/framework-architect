@@ -50,11 +50,22 @@ Guided intake is an application-layer producer of normal blueprints. It does not
 
 - `composeBlueprintFromGuidedIntake(...)` accepts structured intake fields and returns a `ProjectBlueprint`
 - It uses the same factory functions from `src/domain/defaults.ts` as the rest of the app
+- It resolves the framework type through the local template registry in `src/application/templates/frameworkTemplates.ts`
 - It creates connected outcomes, actors, domains, functions, components, flow, governance, phases, MVP and expansion scope, decision records, and failure modes
 - It runs `validateBlueprint(...)` before returning
 - `BlueprintService.createProjectFromGuidedIntake(...)` persists the result through the standard stable save path
 
 Because guided output is saved through `BlueprintService`, it inherits schema parsing, stable change review, local-first persistence, memory snapshot creation, and revision recording.
+
+## Framework Template Layer
+The template layer is deterministic application logic above the domain model. It shapes generation without changing the `ProjectBlueprint` schema or bypassing validation.
+
+- Supported templates are Software App, Praxis Feature, Business System, Coaching System, Content / Brand Framework, Book / White Paper, SOP / Workflow, and Generic Framework
+- Each template defines suggested domains, functions, components, rules, invariants, guardrails, phases, MVP items, expansion items, and failure modes
+- Custom framework type text is matched to the closest supported template with local keyword rules
+- The user's guided intake remains the source of truth; template suggestions fill and shape structure rather than replacing supplied problem, audience, outcome, MVP, expansion, or risk text
+- Template metadata is recoverable from the generated project philosophy and is shown in the dashboard and export outputs
+- Markdown and Codex exports mention the detected template; the Codex prompt includes template-specific implementation emphasis
 
 ## Completion Engine
 The completion engine is used by the default raw-idea create flow so new projects start as populated framework blueprints instead of empty shells. The old shell-only behavior remains available as an advanced/manual `Create empty blueprint` action.

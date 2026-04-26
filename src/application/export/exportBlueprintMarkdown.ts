@@ -1,4 +1,5 @@
 import type { ProjectBlueprint } from "@/domain/models";
+import { describeFrameworkTemplateForBlueprint } from "@/application/templates/frameworkTemplates";
 import {
   bulletList,
   createNameLookup,
@@ -21,11 +22,13 @@ import {
 
 export const exportBlueprintMarkdown = (blueprint: ProjectBlueprint): string => {
   const lookup = createNameLookup(blueprint);
+  const template = describeFrameworkTemplateForBlueprint(blueprint);
 
   return `${joinBlocks([
     `# ${blueprint.project.name}`,
     joinBlocks([
       "## Project",
+      `Framework template: ${template.label}`,
       `Raw idea: ${blueprint.project.rawIdea}`,
       `Core philosophy: ${textOrFallback(blueprint.project.corePhilosophy)}`,
     ]),

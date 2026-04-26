@@ -1,4 +1,5 @@
 import type { ProjectBlueprint, ValidationState } from "@/domain/models";
+import { describeFrameworkTemplateForBlueprint } from "@/application/templates/frameworkTemplates";
 import { SectionCard } from "@/ui/components/SectionCard";
 
 type ProjectDashboardProps = {
@@ -44,6 +45,7 @@ export const ProjectDashboard = ({
           {projects.map((blueprint) => {
             const validationSummary = summarizeValidation(blueprint.validation);
             const latestRevisionNumber = latestRevisionNumbers[blueprint.project.id] ?? null;
+            const template = describeFrameworkTemplateForBlueprint(blueprint);
 
             return (
               <article
@@ -56,6 +58,7 @@ export const ProjectDashboard = ({
                   <div>
                     <p className="eyebrow">{blueprint.project.status}</p>
                     <h2>{blueprint.project.name}</h2>
+                    <p className="muted">{template.label}</p>
                   </div>
                   <button type="button" onClick={() => onOpenProject(blueprint.project.id)}>
                     Open

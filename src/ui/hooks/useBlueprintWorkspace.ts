@@ -10,6 +10,7 @@ import {
   type QuarantinePreviewResult,
 } from "@/application/services/blueprintService";
 import type { GuidedIntakeInput } from "@/application/intake/composeBlueprintFromGuidedIntake";
+import { getFrameworkTemplate, isFrameworkTemplateId } from "@/application/templates/frameworkTemplates";
 import type { ProjectBlueprint } from "@/domain/models";
 import { LocalProjectRepository } from "@/persistence/localProjectRepository";
 import type { BlueprintRevision } from "@/persistence/revisionTypes";
@@ -29,7 +30,8 @@ const defaultCreateDraft: CreateProjectDraft = {
 
 const defaultGuidedIntakeDraft: GuidedIntakeDraft = {
   projectName: "",
-  frameworkType: "",
+  frameworkType: "generic-framework",
+  customFrameworkType: "",
   rawIdea: "",
   targetUser: "",
   problem: "",
@@ -91,19 +93,27 @@ const parseLines = (value: string): string[] =>
     .map((item) => item.trim())
     .filter(Boolean);
 
-const toGuidedIntakeInput = (draft: GuidedIntakeDraft): GuidedIntakeInput => ({
-  rawIdea: draft.rawIdea.trim(),
-  projectName: draft.projectName.trim(),
-  frameworkType: draft.frameworkType.trim(),
-  targetUser: draft.targetUser.trim(),
-  problem: draft.problem.trim(),
-  intendedOutcome: draft.intendedOutcome.trim(),
-  corePrinciples: parseLines(draft.corePrinciplesText),
-  mustRemainTrue: parseLines(draft.mustRemainTrueText),
-  mvpBoundary: parseLines(draft.mvpBoundaryText),
-  expansionIdeas: parseLines(draft.expansionIdeasText),
-  knownRisks: parseLines(draft.knownRisksText),
-});
+const toGuidedIntakeInput = (draft: GuidedIntakeDraft): GuidedIntakeInput => {
+  const selectedTemplateId = isFrameworkTemplateId(draft.frameworkType) ? draft.frameworkType : undefined;
+  const frameworkType = selectedTemplateId
+    ? getFrameworkTemplate(selectedTemplateId).label
+    : draft.customFrameworkType.trim() || draft.frameworkType.trim();
+
+  return {
+    rawIdea: draft.rawIdea.trim(),
+    projectName: draft.projectName.trim(),
+    frameworkType,
+    frameworkTemplateId: selectedTemplateId,
+    targetUser: draft.targetUser.trim(),
+    problem: draft.problem.trim(),
+    intendedOutcome: draft.intendedOutcome.trim(),
+    corePrinciples: parseLines(draft.corePrinciplesText),
+    mustRemainTrue: parseLines(draft.mustRemainTrueText),
+    mvpBoundary: parseLines(draft.mvpBoundaryText),
+    expansionIdeas: parseLines(draft.expansionIdeasText),
+    knownRisks: parseLines(draft.knownRisksText),
+  };
+};
 
 const buildProjectLatestRevisionNumbers = (projects: ProjectBlueprint[]): Record<string, number | null> =>
   projects.reduce<Record<string, number | null>>((accumulator, project) => {

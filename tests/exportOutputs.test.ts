@@ -15,7 +15,8 @@ const praxisGuidedInput: GuidedIntakeInput = {
   projectName: "Praxis Feature Framework",
   rawIdea:
     "Create a governed local-first blueprint builder for Praxis feature ideas that can export useful implementation tasks.",
-  frameworkType: "feature architecture framework",
+  frameworkType: "Praxis Feature",
+  frameworkTemplateId: "praxis-feature",
   targetUser: "Praxis builders",
   problem:
     "Praxis feature ideas arrive as raw notes, then lose assumptions, constraints, scope boundaries, and implementation guardrails.",
@@ -124,16 +125,16 @@ describe("blueprint exports", () => {
     const checklist = exportMvpChecklist(blueprint);
 
     expect(checklist).toContain("Capture raw feature idea");
-    expect(checklist).toContain("Clarify intake assumptions");
-    expect(checklist).toContain("Guided Intake Workspace");
+    expect(checklist).toContain("Capture feature intent");
+    expect(checklist).toContain("Feature Intake");
     expect(checklist).toContain("Generate connected framework structure");
-    expect(checklist).toContain("Compose governed framework blueprint");
-    expect(checklist).toContain("Blueprint Composer");
+    expect(checklist).toContain("Define implementation boundary");
+    expect(checklist).toContain("Praxis Logic Boundary");
     expect(checklist).toContain("Validate readiness and missing structure");
-    expect(checklist).toContain("Review readiness and governance");
-    expect(checklist).toContain("Readiness Review Surface");
+    expect(checklist).toContain("Validate readiness");
+    expect(checklist).toContain("Safety Review Panel");
     expect(checklist).toContain("Export JSON blueprint");
-    expect(checklist).toContain("Export implementation artifacts");
-    expect(checklist).toContain("Export Panel");
+    expect(checklist).toContain("Export Codex task");
+    expect(checklist).toContain("Codex Task Export");
   });
 });

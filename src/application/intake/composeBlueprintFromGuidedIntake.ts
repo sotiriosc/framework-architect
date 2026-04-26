@@ -1,4 +1,10 @@
 import {
+  getFrameworkTemplate,
+  inferFrameworkTemplateId,
+  type FrameworkTemplateDefinition,
+  type FrameworkTemplateId,
+} from "@/application/templates/frameworkTemplates";
+import {
   createActor,
   createComponent,
   createConstraint,
@@ -19,7 +25,16 @@ import {
   createRule,
   createScopeItem,
 } from "@/domain/defaults";
-import type { Component, ProjectBlueprint, ProjectFunction, ScopeItem } from "@/domain/models";
+import type {
+  Component,
+  Domain,
+  Guardrail,
+  Phase,
+  ProjectBlueprint,
+  ProjectFunction,
+  Rule,
+  ScopeItem,
+} from "@/domain/models";
 import { ProjectBlueprintSchema } from "@/schema";
 import { validateBlueprint } from "@/application/validation/validateBlueprint";
 
@@ -27,6 +42,7 @@ export type GuidedIntakeInput = {
   rawIdea: string;
   projectName: string;
   frameworkType: string;
+  frameworkTemplateId?: FrameworkTemplateId;
   targetUser: string;
   problem: string;
   intendedOutcome: string;
@@ -74,10 +90,32 @@ const uniqueList = (items: string[], fallback: string[]): string[] => {
   return normalized.length > 0 ? normalized : fallback;
 };
 
-const normalizeInput = (input: GuidedIntakeInput): NormalizedGuidedIntake => {
+const selectFrameworkTemplate = (input: GuidedIntakeInput): FrameworkTemplateDefinition => {
+  if (input.frameworkTemplateId) {
+    return getFrameworkTemplate(input.frameworkTemplateId);
+  }
+
+  return getFrameworkTemplate(
+    inferFrameworkTemplateId(
+      [
+        input.frameworkType,
+        input.projectName,
+        input.rawIdea,
+        input.targetUser,
+        input.problem,
+        input.intendedOutcome,
+      ].join(" "),
+    ),
+  );
+};
+
+const normalizeInput = (
+  input: GuidedIntakeInput,
+  template: FrameworkTemplateDefinition,
+): NormalizedGuidedIntake => {
   const projectName = requireText(input.projectName, "Project name");
   const rawIdea = requireText(input.rawIdea, "Raw idea");
-  const frameworkType = textOr(input.frameworkType, "guided framework");
+  const frameworkType = textOr(input.frameworkType, template.label);
   const targetUser = textOr(input.targetUser, "the primary user");
   const problem = textOr(input.problem, "The problem space needs explicit structure before implementation.");
   const intendedOutcome = textOr(input.intendedOutcome, "a clear and buildable path forward");
@@ -87,18 +125,15 @@ const normalizeInput = (input: GuidedIntakeInput): NormalizedGuidedIntake => {
     "Keep scope decisions inspectable",
   ]);
   const mustRemainTrue = uniqueList(input.mustRemainTrue, [
+    ...template.suggestedInvariants,
     "The blueprint remains governed by explicit rules, invariants, and scope boundaries.",
   ]);
-  const mvpBoundary = uniqueList(input.mvpBoundary, [
-    "Create the core guided workflow",
-    "Expose validation and readiness signals",
-  ]);
-  const expansionIdeas = uniqueList(input.expansionIdeas, [
-    "Add deeper automation after the governed MVP is stable",
-  ]);
-  const knownRisks = uniqueList(input.knownRisks, [
-    "Hidden assumptions could make the first implementation ambiguous",
-  ]);
+  const templateInvariants = template.suggestedInvariants.filter(
+    (invariant) => !mustRemainTrue.some((item) => item.toLowerCase() === invariant.toLowerCase()),
+  );
+  const mvpBoundary = uniqueList(input.mvpBoundary, template.suggestedMvpItems);
+  const expansionIdeas = uniqueList(input.expansionIdeas, template.suggestedExpansionItems);
+  const knownRisks = uniqueList(input.knownRisks, template.suggestedFailureModes);
 
   return {
     rawIdea,
@@ -108,7 +143,7 @@ const normalizeInput = (input: GuidedIntakeInput): NormalizedGuidedIntake => {
     problem,
     intendedOutcome,
     corePrinciples,
-    mustRemainTrue,
+    mustRemainTrue: uniqueList([...mustRemainTrue, ...templateInvariants], mustRemainTrue).slice(0, 8),
     mvpBoundary,
     expansionIdeas,
     knownRisks,
@@ -144,8 +179,6 @@ const createDistinctExpansionName = (idea: string, mvpNames: Set<string>): strin
 };
 
 const mapAllIds = <T extends { id: string }>(items: T[]): string[] => items.map((item) => item.id);
-
-const optionalList = <T>(item: T | undefined): T[] => (item ? [item] : []);
 
 const includesAny = (value: string, terms: string[]): boolean => {
   const normalized = value.toLowerCase();
@@ -277,6 +310,7 @@ const INVARIANT_STOP_WORDS = new Set([
   "by",
   "can",
   "cannot",
+  "do",
   "each",
   "every",
   "existing",
@@ -285,6 +319,7 @@ const INVARIANT_STOP_WORDS = new Set([
   "must",
   "not",
   "of",
+  "or",
   "prompts",
   "remain",
   "remains",
@@ -332,10 +367,15 @@ const deriveInvariantName = (statement: string): string => {
     return "Functions Map to Outcomes";
   }
 
-  if (
-    normalized.includes("program logic") &&
-    (normalized.includes("must not weaken") || normalized.includes("preserve"))
-  ) {
+  if (normalized.includes("program generation logic") && normalized.includes("weaken")) {
+    return "Preserve Program Generation Logic";
+  }
+
+  if (normalized.includes("progression") && normalized.includes("phase gating") && normalized.includes("bypass")) {
+    return "Respect Progression and Phase Gating";
+  }
+
+  if (normalized.includes("program logic") && (normalized.includes("weaken") || normalized.includes("preserve"))) {
     return `Preserve ${titleFromWords(significantInvariantWords(statement).slice(0, 3))}`;
   }
 
@@ -361,14 +401,263 @@ const uniqueGeneratedName = (baseName: string, usedNames: Set<string>): string =
   return candidate;
 };
 
+const uniqueTemplateNames = (items: string[], fallback: string[]): string[] => uniqueList(items, fallback);
+
+const matchByKeywords = <T extends { name: string }>(
+  items: T[],
+  keywords: string[],
+  fallbackIndex: number,
+): T => {
+  const matched = items.find((item) => includesAny(item.name, keywords));
+  const fallback = items[Math.min(Math.max(fallbackIndex, 0), items.length - 1)] ?? items[0];
+
+  if (!fallback) {
+    throw new Error("Guided template generation expected a populated collection.");
+  }
+
+  return matched ?? fallback;
+};
+
+const domainKeywordsFor = (name: string): string[] => {
+  if (isExportRelated(name) || includesAny(name, ["delivery", "publication", "handoff"])) {
+    return ["export", "output", "delivery", "publication", "handoff"];
+  }
+
+  if (isReadinessRelated(name) || includesAny(name, ["quality", "risk", "safety", "checks"])) {
+    return ["validation", "quality", "risk", "safety", "governance", "checks"];
+  }
+
+  if (includesAny(name, ["data", "persistence"])) {
+    return ["data", "persistence"];
+  }
+
+  if (includesAny(name, ["user", "client", "customer", "audience", "reader"])) {
+    return ["user", "client", "customer", "audience"];
+  }
+
+  if (isCaptureRelated(name) || includesAny(name, ["intent", "goal", "offer", "message", "thesis", "trigger"])) {
+    return ["intent", "goal", "offer", "message", "thesis", "trigger", "intake"];
+  }
+
+  return name.split(/\s+/).filter(Boolean);
+};
+
+const selectDomainFor = (name: string, domains: Domain[], fallbackIndex: number): Domain =>
+  matchByKeywords(domains, domainKeywordsFor(name), fallbackIndex);
+
+const createTemplateDomains = (input: {
+  template: FrameworkTemplateDefinition;
+  frameworkType: string;
+  primaryOutcomeId: string;
+  governanceOutcomeId: string;
+}): Domain[] =>
+  uniqueTemplateNames(input.template.suggestedDomains, ["Intent and Context", "Core Framework", "Governance"])
+    .map((name, index) => {
+      const domain = createDomain();
+      domain.name = name;
+      domain.description = `${input.template.label} domain for ${input.frameworkType}.`;
+      domain.responsibility =
+        index === 0
+          ? "Preserve the source intent and primary decision context."
+          : `Own ${name.toLowerCase()} decisions and keep them connected to outcomes.`;
+      domain.outcomeIds =
+        isReadinessRelated(name) || isExportRelated(name) || includesAny(name, ["risk", "quality", "safety"])
+          ? [input.governanceOutcomeId, input.primaryOutcomeId]
+          : [input.primaryOutcomeId, input.governanceOutcomeId];
+      return domain;
+    });
+
+const createTemplateFunctions = (input: {
+  template: FrameworkTemplateDefinition;
+  frameworkType: string;
+  targetUser: string;
+  domains: Domain[];
+  primaryOutcomeId: string;
+  governanceOutcomeId: string;
+  primaryActorId: string;
+  builderActorId: string;
+  needsExport: boolean;
+}): ProjectFunction[] => {
+  const names = uniqueTemplateNames(
+    [
+      ...input.template.suggestedFunctions,
+      ...(input.needsExport && !input.template.suggestedFunctions.some(isExportRelated)
+        ? ["Export implementation artifacts"]
+        : []),
+    ],
+    ["Clarify intake assumptions", "Compose governed framework blueprint", "Review readiness and governance"],
+  );
+
+  return names.map((name, index) => {
+    const fn = createProjectFunction();
+    const domain = selectDomainFor(name, input.domains, index);
+    fn.name = name;
+    fn.description = `${name} for the ${input.template.label.toLowerCase()} generated from this guided intake.`;
+    fn.domainIds = [domain.id];
+    fn.outcomeIds = [input.primaryOutcomeId, input.governanceOutcomeId];
+    fn.actorIds = isReadinessRelated(name) || isExportRelated(name)
+      ? [input.builderActorId, input.primaryActorId]
+      : [input.primaryActorId, input.builderActorId];
+    fn.inputs = ["Guided intake", input.frameworkType, input.template.label];
+    fn.outputs = [name, "Connected blueprint structure"];
+    return fn;
+  });
+};
+
+const functionKeywordsFor = (name: string): string[] => {
+  if (isExportRelated(name) || includesAny(name, ["publication", "handoff"])) {
+    return ["export", "prompt", "handoff", "output", "publication", "draft"];
+  }
+
+  if (isReadinessRelated(name) || includesAny(name, ["risk", "safety", "quality", "checks"])) {
+    return ["validate", "readiness", "risk", "safety", "quality", "checks", "assess"];
+  }
+
+  if (isCaptureRelated(name) || includesAny(name, ["goal", "offer", "customer", "message", "thesis", "trigger"])) {
+    return ["capture", "clarify", "define", "identify", "goal", "offer", "message", "thesis", "trigger"];
+  }
+
+  if (isStructureRelated(name) || includesAny(name, ["model", "map", "design", "components", "pillars", "argument"])) {
+    return ["model", "map", "design", "compose", "define", "structure", "components", "pillars", "argument"];
+  }
+
+  return name.split(/\s+/).filter(Boolean);
+};
+
+const selectFunctionFor = (name: string, functions: ProjectFunction[], fallbackIndex: number): ProjectFunction =>
+  matchByKeywords(functions, functionKeywordsFor(name), fallbackIndex);
+
+const createTemplateComponents = (input: {
+  template: FrameworkTemplateDefinition;
+  domains: Domain[];
+  functions: ProjectFunction[];
+  needsExport: boolean;
+}): Component[] => {
+  const names = uniqueTemplateNames(
+    [
+      ...input.template.suggestedComponents,
+      ...(input.needsExport && !input.template.suggestedComponents.some(isExportRelated)
+        ? ["Export Panel"]
+        : []),
+    ],
+    ["Guided Intake Workspace", "Blueprint Composer", "Readiness Review Surface"],
+  );
+
+  return names.map((name, index) => {
+    const component = createComponent();
+    const fn = selectFunctionFor(name, input.functions, index);
+    const domain = input.domains.find((item) => fn.domainIds.includes(item.id)) ?? selectDomainFor(name, input.domains, index);
+    component.name = name;
+    component.description = `${name} supports the ${input.template.label.toLowerCase()} workflow.`;
+    component.purpose = `Make ${name.toLowerCase()} explicit and inspectable in the generated blueprint.`;
+    component.domainIds = [domain.id];
+    component.functionIds = [fn.id];
+    component.inputs = ["Guided blueprint state"];
+    component.outputs = [name];
+    return component;
+  });
+};
+
+const createLinearDependencies = (components: Component[]) =>
+  components.slice(0, -1).map((component, index) => {
+    const target = components[index + 1];
+    if (!target) {
+      throw new Error("Guided template dependency generation expected a target component.");
+    }
+
+    const dependency = createDependency();
+    dependency.name = `${component.name} feeds ${target.name}`;
+    dependency.description = `${target.name} depends on output from ${component.name}.`;
+    dependency.kind = "internal";
+    dependency.sourceEntityId = component.id;
+    dependency.targetEntityId = target.id;
+    target.dependencyIds = [...target.dependencyIds, dependency.id];
+    return dependency;
+  });
+
+const createTemplateRules = (template: FrameworkTemplateDefinition): Rule[] =>
+  uniqueTemplateNames(
+    [
+      ...template.suggestedRules,
+      "Assumptions stay explicit",
+      "MVP and expansion remain separate",
+      "Build-ready requires connected structure",
+    ],
+    template.suggestedRules,
+  ).map((name) => {
+    const rule = createRule();
+    rule.name = name;
+    rule.description = `${template.label} rule: ${name}.`;
+    rule.scope = "global";
+    rule.enforcement = "Review stable saves and validation state before accepting changes.";
+    rule.policy.reviewSeverity = "warning";
+    rule.policy.blocksBuildReady = includesAny(name, ["mvp", "expansion", "build-ready", "validation"]);
+    rule.policy.reviewMessage = `${name} must remain visible before stable save.`;
+    rule.policy.recommendation = "Review generated structure, scope, and governance before implementation.";
+    rule.policy.rationale = `${template.label} templates rely on explicit, governed decisions.`;
+    return rule;
+  });
+
+const createTemplateGuardrails = (input: {
+  template: FrameworkTemplateDefinition;
+  projectId: string;
+}): Guardrail[] =>
+  uniqueTemplateNames(
+    [...input.template.suggestedGuardrails, "Protect MVP boundary", "Keep known risks visible"],
+    input.template.suggestedGuardrails,
+  ).map((name, index) => {
+    const guardrail = createGuardrail();
+    guardrail.name = name;
+    guardrail.description = `${input.template.label} guardrail: ${name}.`;
+    guardrail.protectedAgainst = name;
+    guardrail.scope = index === 0 ? "project" : "global";
+    guardrail.scopeEntityIds = index === 0 ? [input.projectId] : [];
+    return guardrail;
+  });
+
+const createTemplatePhases = (input: {
+  template: FrameworkTemplateDefinition;
+  frameworkType: string;
+  functions: ProjectFunction[];
+  components: Component[];
+}): Phase[] => {
+  const phaseNames = uniqueTemplateNames(input.template.suggestedPhases, ["Foundation", "Structure", "Review"]);
+  const phaseCount = phaseNames.length;
+
+  return phaseNames.map((name, index) => {
+    const phase = createPhase();
+    const functionIds = input.functions
+      .filter((_, functionIndex) => functionIndex % phaseCount === index)
+      .map((fn) => fn.id);
+    const componentIds = input.components
+      .filter((_, componentIndex) => componentIndex % phaseCount === index)
+      .map((component) => component.id);
+
+    phase.name = name;
+    phase.description = `${input.template.label} phase for ${input.frameworkType}.`;
+    phase.order = index + 1;
+    phase.objective = `Complete ${name.toLowerCase()} decisions with explicit validation and scope.`;
+    phase.functionIds = functionIds.length > 0 ? functionIds : input.functions[0] ? [input.functions[0].id] : [];
+    phase.componentIds =
+      componentIds.length > 0 ? componentIds : input.components[0] ? [input.components[0].id] : [];
+    phase.exitCriteria = [
+      `${name} is explicit`,
+      "Referenced functions and components are connected",
+      "No critical validation failures remain",
+    ];
+    return phase;
+  });
+};
+
 export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): ProjectBlueprint => {
-  const guided = normalizeInput(input);
+  const template = selectFrameworkTemplate(input);
+  const guided = normalizeInput(input, template);
   const hasExportMvpItems = guided.mvpBoundary.some(isExportRelated);
 
   const project = createProject({
     name: guided.projectName,
     rawIdea: guided.rawIdea,
-    corePhilosophy: `${guided.frameworkType} decisions should keep assumptions, constraints, rules, and scope explicit.`,
+    corePhilosophy: `Framework template: ${template.label}. ${guided.frameworkType} decisions should keep assumptions, constraints, rules, and scope explicit.`,
   });
   project.status = "validated";
   project.invariantPriorities = uniqueList(
@@ -437,186 +726,100 @@ export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): Proj
   riskConstraint.value = joinList(guided.knownRisks);
   riskConstraint.hardConstraint = false;
 
-  const contextDomain = createDomain();
-  contextDomain.name = "Intent and Context";
-  contextDomain.description = "Captures the problem, target user, intended outcome, and assumptions.";
-  contextDomain.responsibility = "Keep the original idea and success logic traceable.";
-  contextDomain.outcomeIds = [primaryOutcome.id, governanceOutcome.id];
+  const domains = createTemplateDomains({
+    template,
+    frameworkType: guided.frameworkType,
+    primaryOutcomeId: primaryOutcome.id,
+    governanceOutcomeId: governanceOutcome.id,
+  });
+  const functions = createTemplateFunctions({
+    template,
+    frameworkType: guided.frameworkType,
+    targetUser: guided.targetUser,
+    domains,
+    primaryOutcomeId: primaryOutcome.id,
+    governanceOutcomeId: governanceOutcome.id,
+    primaryActorId: primaryActor.id,
+    builderActorId: builderActor.id,
+    needsExport: hasExportMvpItems,
+  });
+  const components = createTemplateComponents({
+    template,
+    domains,
+    functions,
+    needsExport: hasExportMvpItems,
+  });
+  const dependencies = createLinearDependencies(components);
 
-  const frameworkDomain = createDomain();
-  frameworkDomain.name = "Core Framework";
-  frameworkDomain.description = `Defines how the ${guided.frameworkType} delivers the intended outcome.`;
-  frameworkDomain.responsibility = "Turn the guided intake into connected functions, components, and flows.";
-  frameworkDomain.outcomeIds = [primaryOutcome.id];
+  const clarifyFunction = matchByKeywords(
+    functions,
+    ["capture", "clarify", "define", "identify", "goal", "intent", "offer", "message", "thesis", "trigger"],
+    0,
+  );
+  const buildFunction = matchByKeywords(
+    functions,
+    [
+      "compose",
+      "model",
+      "workflow",
+      "structure",
+      "boundary",
+      "map",
+      "design",
+      "components",
+      "pillars",
+      "argument",
+      "steps",
+    ],
+    Math.min(1, functions.length - 1),
+  );
+  const readinessFunction = matchByKeywords(
+    functions,
+    ["validate", "readiness", "safety", "risk", "quality", "checks", "assess", "bottlenecks"],
+    Math.min(2, functions.length - 1),
+  );
+  const exportFunction = matchByKeywords(
+    functions,
+    ["export", "prompt", "handoff", "output", "publication", "draft"],
+    functions.length - 1,
+  );
 
-  const governanceDomain = createDomain();
-  governanceDomain.name = "Governance and Readiness";
-  governanceDomain.description = "Keeps rules, invariants, guardrails, decisions, and validation visible.";
-  governanceDomain.responsibility = "Protect build readiness from hidden assumptions or blurred scope.";
-  governanceDomain.outcomeIds = [governanceOutcome.id];
-
-  const outputDomain = hasExportMvpItems ? createDomain() : undefined;
-  if (outputDomain) {
-    outputDomain.name = "Implementation Output";
-    outputDomain.description = "Packages the governed blueprint into implementation-ready artifacts.";
-    outputDomain.responsibility = "Create handoff outputs without mixing MVP and expansion scope.";
-    outputDomain.outcomeIds = [primaryOutcome.id, governanceOutcome.id];
-  }
-
-  const clarifyFunction = createProjectFunction();
-  clarifyFunction.name = "Clarify intake assumptions";
-  clarifyFunction.description = "Normalize the raw idea into explicit problem, user, outcome, and principles.";
-  clarifyFunction.domainIds = [contextDomain.id];
-  clarifyFunction.outcomeIds = [primaryOutcome.id, governanceOutcome.id];
-  clarifyFunction.actorIds = [primaryActor.id];
-  clarifyFunction.inputs = ["Raw idea", "Guided intake answers"];
-  clarifyFunction.outputs = ["Intent", "Outcomes", "Principles"];
-
-  const buildFunction = createProjectFunction();
-  buildFunction.name = "Compose governed framework blueprint";
-  buildFunction.description = "Create a connected blueprint structure for the MVP framework.";
-  buildFunction.domainIds = [frameworkDomain.id];
-  buildFunction.outcomeIds = [primaryOutcome.id];
-  buildFunction.actorIds = [builderActor.id, primaryActor.id];
-  buildFunction.inputs = ["Intent", "Outcomes", "MVP boundary"];
-  buildFunction.outputs = ["Domains", "Functions", "Components", "Flow"];
-
-  const readinessFunction = createProjectFunction();
-  readinessFunction.name = "Review readiness and governance";
-  readinessFunction.description = "Surface validation, rules, invariants, guardrails, risks, and decisions.";
-  readinessFunction.domainIds = [governanceDomain.id];
-  readinessFunction.outcomeIds = [primaryOutcome.id, governanceOutcome.id];
-  readinessFunction.actorIds = [builderActor.id];
-  readinessFunction.inputs = ["Blueprint structure", "Constraints", "Known risks"];
-  readinessFunction.outputs = ["Readiness summary", "Decision records", "Failure modes"];
-
-  const exportFunction = outputDomain ? createProjectFunction() : undefined;
-  if (exportFunction && outputDomain) {
-    exportFunction.name = "Export implementation artifacts";
-    exportFunction.description = "Generate Markdown, Codex prompt, JSON, and MVP checklist outputs from the blueprint.";
-    exportFunction.domainIds = [outputDomain.id];
-    exportFunction.outcomeIds = [primaryOutcome.id, governanceOutcome.id];
-    exportFunction.actorIds = [builderActor.id, primaryActor.id];
-    exportFunction.inputs = ["Validated blueprint", "MVP scope", "Governance constraints"];
-    exportFunction.outputs = [
-      "Markdown architecture brief",
-      "Codex implementation prompt",
-      "Blueprint JSON",
-      "MVP checklist",
-    ];
-  }
-
-  const intakeComponent = createComponent();
-  intakeComponent.name = "Guided Intake Workspace";
-  intakeComponent.description = "Collects the guided intake and keeps the original idea attached.";
-  intakeComponent.purpose = "Turn raw project intent into explicit blueprint context.";
-  intakeComponent.domainIds = [contextDomain.id];
-  intakeComponent.functionIds = [clarifyFunction.id];
-  intakeComponent.inputs = ["Guided intake"];
-  intakeComponent.outputs = ["Normalized intent"];
-
-  const blueprintComponent = createComponent();
-  blueprintComponent.name = "Blueprint Composer";
-  blueprintComponent.description = "Creates the connected blueprint entities from guided intake.";
-  blueprintComponent.purpose = "Populate the governed framework model without bypassing schema validation.";
-  blueprintComponent.domainIds = [frameworkDomain.id, governanceDomain.id];
-  blueprintComponent.functionIds = [buildFunction.id, readinessFunction.id];
-  blueprintComponent.inputs = ["Intent", "Principles", "Scope boundaries"];
-  blueprintComponent.outputs = ["ProjectBlueprint"];
-
-  const readinessComponent = createComponent();
-  readinessComponent.name = "Readiness Review Surface";
-  readinessComponent.description = "Shows blockers, warnings, passes, and next recommended fixes.";
-  readinessComponent.purpose = "Help users understand whether the blueprint is ready for implementation.";
-  readinessComponent.domainIds = [governanceDomain.id];
-  readinessComponent.functionIds = [readinessFunction.id];
-  readinessComponent.inputs = ["Validation state", "Decision records", "Failure modes"];
-  readinessComponent.outputs = ["Human-readable readiness summary"];
-
-  const exportComponent = exportFunction && outputDomain ? createComponent() : undefined;
-  if (exportComponent && exportFunction && outputDomain) {
-    exportComponent.name = "Export Panel";
-    exportComponent.description = "Downloads implementation artifacts from the completed blueprint.";
-    exportComponent.purpose = "Turn the governed blueprint into practical local-first output files.";
-    exportComponent.domainIds = [outputDomain.id];
-    exportComponent.functionIds = [exportFunction.id];
-    exportComponent.inputs = ["Validated ProjectBlueprint"];
-    exportComponent.outputs = ["Markdown brief", "Codex prompt", "JSON export", "MVP checklist"];
-  }
-
-  const intakeToComposer = createDependency();
-  intakeToComposer.name = "Intake feeds composer";
-  intakeToComposer.description = "The composer uses guided intake answers as its source material.";
-  intakeToComposer.kind = "internal";
-  intakeToComposer.sourceEntityId = intakeComponent.id;
-  intakeToComposer.targetEntityId = blueprintComponent.id;
-
-  const composerToReadiness = createDependency();
-  composerToReadiness.name = "Composer feeds readiness review";
-  composerToReadiness.description = "Readiness review evaluates the generated blueprint structure.";
-  composerToReadiness.kind = "internal";
-  composerToReadiness.sourceEntityId = blueprintComponent.id;
-  composerToReadiness.targetEntityId = readinessComponent.id;
-
-  const readinessToExport = exportComponent ? createDependency() : undefined;
-  if (readinessToExport && exportComponent) {
-    readinessToExport.name = "Readiness review feeds export panel";
-    readinessToExport.description = "Implementation artifacts are generated from the reviewed blueprint state.";
-    readinessToExport.kind = "internal";
-    readinessToExport.sourceEntityId = readinessComponent.id;
-    readinessToExport.targetEntityId = exportComponent.id;
-  }
-
-  intakeComponent.dependencyIds = [intakeToComposer.id];
-  readinessComponent.dependencyIds = [composerToReadiness.id];
-  if (exportComponent && readinessToExport) {
-    exportComponent.dependencyIds = [readinessToExport.id];
-  }
+  const intakeComponent = matchByKeywords(
+    components,
+    ["intake", "goal", "feature", "customer", "client", "message", "thesis", "trigger"],
+    0,
+  );
+  const blueprintComponent = matchByKeywords(
+    components,
+    ["composer", "modeler", "planner", "logic", "boundary", "workflow", "delivery", "program", "pillars", "argument", "steps"],
+    Math.min(1, components.length - 1),
+  );
+  const readinessComponent = matchByKeywords(
+    components,
+    ["validation", "readiness", "review", "safety", "risk", "quality", "assessment", "checks"],
+    Math.min(2, components.length - 1),
+  );
+  const exportComponent = matchByKeywords(
+    components,
+    ["export", "prompt", "handoff", "output", "publication", "draft"],
+    components.length - 1,
+  );
 
   const guidedFlow = createFlow();
   guidedFlow.name = "Idea to governed blueprint";
-  guidedFlow.description = "Transforms guided intake into a validated framework blueprint.";
+  guidedFlow.description = `Transforms guided intake into a validated ${template.label.toLowerCase()} blueprint.`;
   guidedFlow.stepSummary =
     hasExportMvpItems
-      ? "Capture guided intake, compose connected structure, validate readiness, and export implementation artifacts."
-      : "Capture guided intake, compose connected structure, validate readiness, and preserve decisions.";
+      ? `Capture guided intake, shape ${template.label.toLowerCase()} structure, validate readiness, and export implementation artifacts.`
+      : `Capture guided intake, shape ${template.label.toLowerCase()} structure, validate readiness, and preserve decisions.`;
   guidedFlow.actorIds = [primaryActor.id, builderActor.id];
-  guidedFlow.functionIds = [
-    clarifyFunction.id,
-    buildFunction.id,
-    readinessFunction.id,
-    ...optionalList(exportFunction?.id),
-  ];
-  guidedFlow.componentIds = [
-    intakeComponent.id,
-    blueprintComponent.id,
-    readinessComponent.id,
-    ...optionalList(exportComponent?.id),
-  ];
+  guidedFlow.functionIds = mapAllIds(functions);
+  guidedFlow.componentIds = mapAllIds(components);
 
-  const assumptionsRule = createRule();
-  assumptionsRule.name = "Assumptions stay explicit";
-  assumptionsRule.description = "Any generated or edited blueprint assumption must remain visible in the model.";
-  assumptionsRule.scope = "global";
-  assumptionsRule.enforcement = "Review project, structural, and decision changes before stable save.";
-  assumptionsRule.policy.reviewSeverity = "warning";
-  assumptionsRule.policy.reviewMessage = "Stable changes should not hide guided assumptions.";
-  assumptionsRule.policy.recommendation = "Review assumptions, constraints, and decision records before saving.";
-  assumptionsRule.policy.rationale = "Hidden assumptions make the generated blueprint hard to implement safely.";
-
-  const scopeRule = createRule();
-  scopeRule.name = "MVP and expansion remain separate";
-  scopeRule.description = "MVP scope items must not be duplicated into expansion scope.";
-  scopeRule.scope = "global";
-  scopeRule.enforcement = "Validation keeps MVP and expansion names distinct.";
-  scopeRule.policy.reviewSeverity = "warning";
-  scopeRule.policy.blocksBuildReady = true;
-  scopeRule.policy.reviewMessage = "Scope boundaries must remain explicit before build-ready claims.";
-  scopeRule.policy.recommendation = "Keep first-build items separate from future expansion ideas.";
-  scopeRule.policy.rationale = "Blurred scope makes implementation planning unreliable.";
+  const rules = createTemplateRules(template);
 
   const invariantNames = new Set<string>();
-  const invariants = guided.mustRemainTrue.slice(0, 4).map((statement, index) => {
+  const invariants = guided.mustRemainTrue.slice(0, 8).map((statement, index) => {
     const invariant = createInvariant();
     invariant.name = uniqueGeneratedName(deriveInvariantName(statement), invariantNames);
     invariant.description = statement;
@@ -631,81 +834,20 @@ export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): Proj
     return invariant;
   });
 
-  const mvpGuardrail = createGuardrail();
-  mvpGuardrail.name = "Protect MVP boundary";
-  mvpGuardrail.description = "Prevents future ideas from diluting the first buildable version.";
-  mvpGuardrail.protectedAgainst = "Scope creep during implementation planning.";
-  mvpGuardrail.scope = "project";
-  mvpGuardrail.scopeEntityIds = [project.id];
+  const guardrails = createTemplateGuardrails({ template, projectId: project.id });
+  const riskGuardrail = matchByKeywords(guardrails, ["risk", "safety", "hidden", "assumption"], guardrails.length - 1);
+  const coreGuardrailIds = guardrails.slice(0, 3).map((guardrail) => guardrail.id);
+  components.forEach((component) => {
+    component.invariantIds = mapAllIds(invariants);
+    component.guardrailIds = coreGuardrailIds;
+  });
 
-  const riskGuardrail = createGuardrail();
-  riskGuardrail.name = "Keep known risks visible";
-  riskGuardrail.description = "Known risks must remain attached to readiness review.";
-  riskGuardrail.protectedAgainst = "Treating generated structure as risk-free.";
-  riskGuardrail.scope = "global";
-
-  blueprintComponent.invariantIds = mapAllIds(invariants);
-  blueprintComponent.guardrailIds = [mvpGuardrail.id];
-  readinessComponent.invariantIds = mapAllIds(invariants);
-  readinessComponent.guardrailIds = [mvpGuardrail.id, riskGuardrail.id];
-  if (exportComponent) {
-    exportComponent.invariantIds = mapAllIds(invariants);
-    exportComponent.guardrailIds = [mvpGuardrail.id, riskGuardrail.id];
-  }
-
-  const mvpPhase = createPhase();
-  mvpPhase.name = "MVP Foundation";
-  mvpPhase.description = "Create the first buildable governed framework.";
-  mvpPhase.order = 1;
-  mvpPhase.objective = `Deliver the core ${guided.frameworkType} experience for ${guided.targetUser}.`;
-  mvpPhase.functionIds = [clarifyFunction.id, buildFunction.id];
-  mvpPhase.componentIds = [intakeComponent.id, blueprintComponent.id];
-  mvpPhase.exitCriteria = [
-    "Intent and outcome are explicit",
-    "MVP scope items reference outcomes, functions, and components",
-    "Validation has no critical failures",
-  ];
-
-  const readinessPhase = createPhase();
-  readinessPhase.name = "Governance Review";
-  readinessPhase.description = "Validate readiness before treating the blueprint as stable implementation guidance.";
-  readinessPhase.order = 2;
-  readinessPhase.objective = "Confirm rules, invariants, guardrails, decisions, and risks are visible.";
-  readinessPhase.functionIds = [readinessFunction.id];
-  readinessPhase.componentIds = [readinessComponent.id];
-  readinessPhase.exitCriteria = [
-    "Readiness blockers are resolved",
-    "MVP and expansion are distinct",
-    "Decision records explain the initial structure",
-  ];
-
-  const outputPhase = exportFunction && exportComponent ? createPhase() : undefined;
-  if (outputPhase && exportFunction && exportComponent) {
-    outputPhase.name = "Implementation Output";
-    outputPhase.description = "Prepare governed artifacts for implementation outside the app.";
-    outputPhase.order = 3;
-    outputPhase.objective = "Export concise artifacts that preserve rules, invariants, guardrails, and scope.";
-    outputPhase.functionIds = [exportFunction.id];
-    outputPhase.componentIds = [exportComponent.id];
-    outputPhase.exitCriteria = [
-      "Markdown architecture brief is available",
-      "Codex implementation prompt preserves governance",
-      "JSON and MVP checklist exports are available",
-    ];
-  }
-
-  const functions: ProjectFunction[] = [
-    clarifyFunction,
-    buildFunction,
-    readinessFunction,
-    ...optionalList(exportFunction),
-  ];
-  const components: Component[] = [
-    intakeComponent,
-    blueprintComponent,
-    readinessComponent,
-    ...optionalList(exportComponent),
-  ];
+  const phases = createTemplatePhases({
+    template,
+    frameworkType: guided.frameworkType,
+    functions,
+    components,
+  });
 
   const mvpItems = guided.mvpBoundary.map((item) => {
     const mapping = mapMvpScopeReferences(item, {
@@ -814,17 +956,17 @@ export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): Proj
   blueprint.outcomes = [primaryOutcome, governanceOutcome];
   blueprint.actors = [primaryActor, builderActor];
   blueprint.constraints = [contextConstraint, mvpConstraint, riskConstraint];
-  blueprint.domains = [contextDomain, frameworkDomain, governanceDomain, ...optionalList(outputDomain)];
+  blueprint.domains = domains;
   blueprint.functions = functions;
   blueprint.components = components;
   blueprint.flows = [guidedFlow];
-  blueprint.dependencies = [intakeToComposer, composerToReadiness, ...optionalList(readinessToExport)];
-  blueprint.rules = [assumptionsRule, scopeRule];
+  blueprint.dependencies = dependencies;
+  blueprint.rules = rules;
   blueprint.invariants = invariants;
   blueprint.decisionLogic = decisionLogic;
   blueprint.failureModes = failureModes;
-  blueprint.guardrails = [mvpGuardrail, riskGuardrail];
-  blueprint.phases = [mvpPhase, readinessPhase, ...optionalList(outputPhase)];
+  blueprint.guardrails = guardrails;
+  blueprint.phases = phases;
   blueprint.mvpScope.summary = `First build: ${joinList(guided.mvpBoundary)}.`;
   blueprint.mvpScope.successDefinition = `The MVP helps ${guided.targetUser} reach ${guided.intendedOutcome} with explicit governance.`;
   blueprint.mvpScope.items = mvpItems;

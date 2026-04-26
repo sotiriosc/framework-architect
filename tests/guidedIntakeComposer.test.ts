@@ -45,7 +45,8 @@ const praxisGuidedInput: GuidedIntakeInput = {
   projectName: "Praxis Feature Framework",
   rawIdea:
     "Create a governed local-first blueprint builder for Praxis feature ideas that can export useful implementation tasks.",
-  frameworkType: "feature architecture framework",
+  frameworkType: "Praxis Feature",
+  frameworkTemplateId: "praxis-feature",
   targetUser: "Praxis builders",
   problem:
     "Praxis feature ideas arrive as raw notes, then lose assumptions, constraints, scope boundaries, and implementation guardrails.",
@@ -180,21 +181,21 @@ describe("composeBlueprintFromGuidedIntake", () => {
       expect(scopeItem?.componentIds.map((id) => componentNamesById.get(id))).toContain(componentName);
     };
 
-    expectScopeReferences("Capture raw feature idea", "Clarify intake assumptions", "Guided Intake Workspace");
+    expectScopeReferences("Capture raw feature idea", "Capture feature intent", "Feature Intake");
     expectScopeReferences(
       "Generate connected framework structure",
-      "Compose governed framework blueprint",
-      "Blueprint Composer",
+      "Define implementation boundary",
+      "Praxis Logic Boundary",
     );
     expectScopeReferences(
       "Validate readiness and missing structure",
-      "Review readiness and governance",
-      "Readiness Review Surface",
+      "Validate readiness",
+      "Safety Review Panel",
     );
-    expectScopeReferences("Export Markdown architecture brief", "Export implementation artifacts", "Export Panel");
-    expectScopeReferences("Export Codex Prompt", "Export implementation artifacts", "Export Panel");
-    expectScopeReferences("Export JSON blueprint", "Export implementation artifacts", "Export Panel");
-    expectScopeReferences("Export MVP Checklist", "Export implementation artifacts", "Export Panel");
+    expectScopeReferences("Export Markdown architecture brief", "Export Codex task", "Codex Task Export");
+    expectScopeReferences("Export Codex Prompt", "Export Codex task", "Codex Task Export");
+    expectScopeReferences("Export JSON blueprint", "Export Codex task", "Codex Task Export");
+    expectScopeReferences("Export MVP Checklist", "Export Codex task", "Codex Task Export");
   });
 
   it("derives meaningful invariant names from guided invariant text", () => {
