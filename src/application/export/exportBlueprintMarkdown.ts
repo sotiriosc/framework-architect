@@ -1,4 +1,5 @@
 import type { ProjectBlueprint } from "@/domain/models";
+import { buildBlueprintQualityReview } from "@/application/review/buildBlueprintQualityReview";
 import { describeFrameworkTemplateForBlueprint } from "@/application/templates/frameworkTemplates";
 import {
   bulletList,
@@ -20,9 +21,14 @@ import {
   validationSummary,
 } from "@/application/export/exportHelpers";
 
-export const exportBlueprintMarkdown = (blueprint: ProjectBlueprint): string => {
+export const exportBlueprintMarkdown = (
+  blueprint: ProjectBlueprint,
+  options: { includeQualityReview?: boolean } = {},
+): string => {
   const lookup = createNameLookup(blueprint);
   const template = describeFrameworkTemplateForBlueprint(blueprint);
+  const includeQualityReview = options.includeQualityReview ?? true;
+  const qualityReview = includeQualityReview ? buildBlueprintQualityReview(blueprint) : null;
 
   return `${joinBlocks([
     `# ${blueprint.project.name}`,
@@ -69,5 +75,15 @@ export const exportBlueprintMarkdown = (blueprint: ProjectBlueprint): string => 
       renderDecisionRecord(record, lookup),
     )}`,
     `## Validation Summary\n${validationSummary(blueprint.validation)}`,
+    qualityReview
+      ? joinBlocks([
+          "## Quality Review",
+          `Score: ${qualityReview.overallScore}/100 (${qualityReview.grade})`,
+          qualityReview.summary,
+          qualityReview.nextBestFix
+            ? `Next best fix: ${qualityReview.nextBestFix.title} - ${qualityReview.nextBestFix.recommendation}`
+            : "Next best fix: No quality fixes pending.",
+        ])
+      : "",
   ])}\n`;
 };

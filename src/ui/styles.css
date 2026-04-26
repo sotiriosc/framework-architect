@@ -422,6 +422,68 @@ textarea {
   background: #eef8ef;
 }
 
+.quality-callout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  border: 1px solid #8aa0b4;
+  background: #f4f8fb;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.quality-callout--excellent,
+.quality-callout--strong {
+  border-color: #6ea877;
+  background: #eef8ef;
+}
+
+.quality-callout--weak {
+  border-color: #c95f50;
+  background: #fff4f2;
+}
+
+.quality-callout strong {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.quality-section-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.quality-score {
+  border: 1px solid #d7d6ce;
+  background: #fffdf9;
+  padding: 0.6rem;
+}
+
+.quality-score span,
+.quality-score strong {
+  display: block;
+}
+
+.quality-detail {
+  border-top: 1px solid #d7d6ce;
+  padding-top: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.quality-detail summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.quality-template-fit {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
 .readiness-callout strong,
 .readiness-group strong {
   display: block;

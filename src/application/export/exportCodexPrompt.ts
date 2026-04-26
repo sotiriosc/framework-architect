@@ -1,4 +1,5 @@
 import type { ProjectBlueprint } from "@/domain/models";
+import { buildBlueprintQualityReview } from "@/application/review/buildBlueprintQualityReview";
 import { describeFrameworkTemplateForBlueprint } from "@/application/templates/frameworkTemplates";
 import {
   bulletList,
@@ -18,6 +19,10 @@ import {
 export const exportCodexPrompt = (blueprint: ProjectBlueprint): string => {
   const lookup = createNameLookup(blueprint);
   const template = describeFrameworkTemplateForBlueprint(blueprint);
+  const qualityReview = buildBlueprintQualityReview(blueprint);
+  const qualityWarnings = qualityReview.issues.filter(
+    (issue) => issue.impact === "high" || issue.type === "export-readiness" || issue.type === "template-fit",
+  );
 
   return `${joinBlocks([
     `# Codex Implementation Prompt: ${blueprint.project.name}`,
@@ -60,6 +65,16 @@ export const exportCodexPrompt = (blueprint: ProjectBlueprint): string => {
       validationSummary(blueprint.validation),
       "Do not mark the implementation complete until critical validation blockers are resolved and the governed structure remains connected.",
     ]),
+    qualityWarnings.length > 0
+      ? joinBlocks([
+          "## Quality Warnings",
+          `Quality score: ${qualityReview.overallScore}/100 (${qualityReview.grade})`,
+          bulletList(
+            qualityWarnings.slice(0, 5),
+            (issue) => `${issue.title}: ${issue.recommendation}`,
+          ),
+        ])
+      : "",
     "Do not bypass governance constraints, stable validation expectations, explicit scope separation, or any rule/invariant/guardrail listed above.",
   ])}\n`;
 };

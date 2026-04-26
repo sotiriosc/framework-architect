@@ -73,6 +73,7 @@ describe("blueprint exports", () => {
     expect(markdown).toContain("## MVP Scope");
     expect(markdown).toContain("## Decision Records");
     expect(markdown).toContain("## Validation Summary");
+    expect(markdown).toContain("## Quality Review");
   });
 
   it("exports a Codex prompt with governance and MVP scope", () => {
@@ -136,5 +137,17 @@ describe("blueprint exports", () => {
     expect(checklist).toContain("Export JSON blueprint");
     expect(checklist).toContain("Export Codex task");
     expect(checklist).toContain("Codex Task Export");
+  });
+
+  it("includes Codex quality warnings only when relevant", () => {
+    const strongBlueprint = composeBlueprintFromGuidedIntake(praxisGuidedInput);
+    const strongPrompt = exportCodexPrompt(strongBlueprint);
+    const weakBlueprint = composeBlueprintFromGuidedIntake(praxisGuidedInput);
+    weakBlueprint.expansionScope.items[0]!.name = weakBlueprint.mvpScope.items[0]!.name;
+    const weakPrompt = exportCodexPrompt(weakBlueprint);
+
+    expect(strongPrompt).not.toContain("## Quality Warnings");
+    expect(weakPrompt).toContain("## Quality Warnings");
+    expect(weakPrompt).toContain("MVP and expansion overlap");
   });
 });

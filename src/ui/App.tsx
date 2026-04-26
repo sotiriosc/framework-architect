@@ -10,6 +10,7 @@ import { ExportPanel } from "@/ui/components/ExportPanel";
 import { GuidedBlueprintWizard } from "@/ui/components/GuidedBlueprintWizard";
 import { ProjectForm } from "@/ui/components/ProjectForm";
 import { ProjectDashboard } from "@/ui/components/ProjectDashboard";
+import { BlueprintQualityPanel } from "@/ui/components/BlueprintQualityPanel";
 import { PersistenceStatusPanel } from "@/ui/components/PersistenceStatusPanel";
 import { QuarantineInspectorPanel } from "@/ui/components/QuarantineInspectorPanel";
 import { RevisionHistoryPanel } from "@/ui/components/RevisionHistoryPanel";
@@ -611,6 +612,7 @@ const App = () => {
                 projectStatus={workspace.draftBlueprint.project.status}
                 relationOptions={relationOptions}
               />
+              <BlueprintQualityPanel blueprint={workspace.draftBlueprint} relationOptions={relationOptions} />
               <ExportPanel blueprint={workspace.draftBlueprint} />
               <RevisionHistoryPanel
                 revisions={workspace.projectRevisions}
