@@ -181,12 +181,13 @@ const splitCandidateLines = (rawText: string): CandidateLine[] => {
   let currentSection: SectionKind = null;
 
   lines.forEach((original, index) => {
+    const wasListItem = /^\s*(?:[-*•]|\d+[.)])\s+/.test(original);
     const cleaned = stripSpeakerAndBullet(original);
     if (!cleaned) {
       return;
     }
 
-    if (isLikelyHeading(cleaned)) {
+    if (!wasListItem && isLikelyHeading(cleaned)) {
       currentSection = headingKindFor(cleaned);
       const labelValue = textAfterLabel(cleaned);
       if (!labelValue || labelValue.text.length < 8) {
@@ -250,7 +251,7 @@ const signalTexts = (signals: DistilledSignal[], kinds: DistilledSignalKind[]): 
     signals
       .filter((signal) => kinds.includes(signal.kind))
       .map((signal) => signal.text),
-  ).slice(0, 8);
+  );
 
 const firstStrongParagraph = (rawText: string): string =>
   rawText
@@ -299,12 +300,12 @@ export const distillConversationToIntake = (
   const problemCandidate = firstSignalText(signals, "problem");
   const targetUserCandidate = firstSignalText(signals, "target-user");
   const intendedOutcomeCandidate = firstSignalText(signals, "outcome");
-  const corePrinciples = signalTexts(signals, ["principle"]).slice(0, 6);
-  const mustRemainTrue = signalTexts(signals, ["invariant", "do-not-break"]).slice(0, 8);
-  const mvpBoundary = signalTexts(signals, ["mvp"]).slice(0, 8);
-  const expansionIdeas = signalTexts(signals, ["expansion"]).slice(0, 8);
-  const knownRisks = signalTexts(signals, ["risk"]).slice(0, 8);
-  const hiddenOpportunities = signalTexts(signals, ["opportunity", "implementation"]).slice(0, 8);
+  const corePrinciples = signalTexts(signals, ["principle"]).slice(0, 8);
+  const mustRemainTrue = signalTexts(signals, ["invariant", "do-not-break"]).slice(0, 10);
+  const mvpBoundary = signalTexts(signals, ["mvp"]).slice(0, 14);
+  const expansionIdeas = signalTexts(signals, ["expansion"]).slice(0, 10);
+  const knownRisks = signalTexts(signals, ["risk"]).slice(0, 10);
+  const hiddenOpportunities = signalTexts(signals, ["opportunity", "implementation"]).slice(0, 10);
   const lowConfidenceCount = signals.filter((signal) => signal.confidence === "low").length;
   const warnings: string[] = [];
 

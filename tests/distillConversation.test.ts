@@ -67,6 +67,75 @@ Implementation:
 - Add regression tests and a bounded Codex task pack.
 `;
 
+const praxisV1SmokeFixture = `
+Raw idea: Build a Praxis Feature workflow in Framework Architect that turns messy conversation notes into a governed blueprint, implementation plan, Codex task pack, and one bounded Agent Run Packet.
+Target user: Praxis builders and feature implementers.
+Problem: Praxis feature ideas can move too quickly into implementation, weakening program generation, progression, phase-gating, validation, and user trust.
+Intended outcome: Create a build-ready Praxis Feature blueprint that preserves intent, separates MVP from expansion, and reviews pasted Codex results only from reported evidence.
+
+Core principles:
+- Preserve intent before implementation
+- Structure before code
+- Validate before build-ready
+- Separate MVP from expansion
+- Do not bypass existing app invariants
+- Keep coaching clarity and user trust
+- Use Codex only through bounded tasks
+
+Must remain true:
+- Generated prompts must not weaken existing Praxis program generation logic
+- Do not bypass progression logic
+- Do not bypass phase gating
+- Do not modify generator, progression, repair, or phase-gating logic unless explicitly scoped
+- MVP scope and expansion scope must remain separate
+- Every implementation task must include acceptance criteria and tests
+- Agent Run Harness must not pretend to verify code directly
+- Pasted Codex results must be reviewed only from reported evidence
+
+MVP boundary:
+- Import conversation or notes
+- Distill the thread into editable intake fields
+- Create a Praxis Feature blueprint
+- Validate structural completeness
+- Review quality and apply safe fixes
+- Generate foresight suggestions
+- Create implementation plan
+- Generate Codex Task Pack
+- Generate one Agent Run Packet for one implementation task
+- Paste a fake Codex result
+- Review whether the report satisfies acceptance criteria
+- Store the result in the execution journal
+- Export Markdown, Codex Prompt, Implementation Plan, Codex Task Pack, JSON, and MVP Checklist
+
+Expansion ideas:
+- Direct ChatGPT integration
+- Browser extension for sending selected chat text into Framework Architect
+- GitHub PR review integration
+- Actual code/test verification through a local CLI bridge
+- Team collaboration
+- Cloud sync
+- Reusable Praxis feature template library
+- One-click Codex handoff
+- Agent result comparison across multiple runs
+
+Known risks:
+- Codex may say tests passed when they were not actually run
+- A pasted report may say not covered or not run and the harness could accidentally count it as evidence
+- The blueprint may become too generic
+- The user might confuse quality review with validation
+- The app might imply it executes Codex when it only prepares packets
+- The MVP checklist might accidentally include future expansion items
+- Agent journal entries could be confused with blueprint truth or revisions
+- Too many panels could overwhelm the user
+
+Hidden opportunities:
+- The app can become a governance harness around AI-assisted development
+- Chat can remain the discovery layer while Framework Architect becomes the crystallization layer
+- The system can preserve the seed of an idea and show how the thread becomes structure
+- The Agent Run Harness can prevent reckless autonomous execution by requiring bounded scope, evidence, and review
+- Praxis can use this to build features more safely
+`;
+
 const toGuidedInput = (intake: DistilledConversationIntake): GuidedIntakeInput => ({
   rawIdea: intake.rawIdeaCandidate,
   projectName: intake.projectNameCandidate,
@@ -166,5 +235,21 @@ describe("conversation distillation", () => {
     expect(created.validation.buildReady).toBe(true);
     expect(created.memory.projectEntries.some((entry) => entry.tags.includes("conversation-import"))).toBe(true);
     expect(service.listProjectRevisions(created.project.id)).toHaveLength(1);
+  });
+
+  it("distills the V1 Praxis smoke fixture into the main guided intake buckets", () => {
+    const result = distillConversationToIntake(createDraft(praxisV1SmokeFixture, "Praxis V1 Smoke Fixture"));
+
+    expect(result.intake.suggestedTemplateId).toBe("praxis-feature");
+    expect(result.intake.targetUserCandidate).toContain("Praxis builders");
+    expect(result.intake.problemCandidate).toMatch(/weakening program generation/i);
+    expect(result.intake.mustRemainTrue.join(" ")).toMatch(/phase gating/i);
+    expect(result.intake.mustRemainTrue.join(" ")).toMatch(/reviewed only from reported evidence/i);
+    expect(result.intake.mvpBoundary.join(" ")).toMatch(/Generate Codex Task Pack/i);
+    expect(result.intake.mvpBoundary.join(" ")).toMatch(/Generate one Agent Run Packet/i);
+    expect(result.intake.expansionIdeas.join(" ")).toMatch(/GitHub PR review integration/i);
+    expect(result.intake.knownRisks.join(" ")).toMatch(/not covered or not run/i);
+    expect(result.intake.hiddenOpportunities.join(" ")).toMatch(/governance harness/i);
+    expect(result.warnings).toEqual([]);
   });
 });
