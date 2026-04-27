@@ -35,6 +35,18 @@ Use this checklist before deeper manual testing or release packaging.
 - [ ] Confirm project memory includes a conversation-import entry without storing the full pasted thread as memory text.
 - [ ] Confirm validation passes and the normal quality, foresight, implementation plan, and export loop remains available.
 
+## Multi-Template Spot Check
+- [ ] Keep the Praxis fixture as the primary full manual smoke test.
+- [ ] Open `docs/template-smoke-fixtures.md`.
+- [ ] Pick one non-Praxis fixture.
+- [ ] Import and distill the fixture through Import conversation / notes.
+- [ ] Confirm the suggested template matches the fixture heading.
+- [ ] Confirm raw idea, target user, problem, intended outcome, MVP, expansion, risks, and hidden opportunities are populated.
+- [ ] Create the blueprint and confirm validation is build-ready.
+- [ ] Confirm the Source Lineage panel shows the same template orientation.
+- [ ] Export Markdown, Codex Task Pack, MVP Checklist, and Lineage Report for the spot-check blueprint.
+- [ ] Confirm MVP and expansion remain separate in the generated blueprint and exports.
+
 ### Sample Praxis Feature Import Text
 Use this as the conversation import smoke-test fixture.
 

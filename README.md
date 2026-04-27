@@ -38,6 +38,7 @@ The default path is guided and populated: users can paste a messy conversation o
 - Implementation task planner and Codex task pack exports
 - Agent Run Harness and local execution journal for bounded external Codex runs and pasted result review
 - Source Lineage / Seed Provenance view and export for seed, template orientation, shaping inputs, produced artifacts, trust boundaries, and warnings
+- Multi-template calibration fixtures for Software App, Business System, Coaching System, Content / Brand Framework, Book / White Paper, SOP / Workflow, and Generic Framework seeds
 - Minimal UI for dashboard, guided creation, full editing, validation, quality review, foresight, implementation planning, agent runs, exports, lineage, revision history, memory, and quarantine recovery
 - A seed example blueprint for inspection and iteration
 
@@ -140,8 +141,10 @@ Out of scope for this branch:
 ## Framework Templates
 - Template definitions live in `src/application/templates/frameworkTemplates.ts`
 - Supported templates are Software App, Praxis Feature, Business System, Coaching System, Content / Brand Framework, Book / White Paper, SOP / Workflow, and Generic Framework
+- Templates are deterministic seed patterns: they shape different kinds of blueprints through local guidance for domains, functions, components, governance, scope, risks, planning, and exports
 - Template inference is local and deterministic; there are no external AI calls or backend dependencies
 - Template metadata is surfaced in project cards and exports without changing the core `ProjectBlueprint` schema
+- Canonical multi-template smoke fixtures live in `docs/template-smoke-fixtures.md` and reusable test fixtures live in `tests/fixtures/templateSmokeFixtures.ts`
 
 ## Deterministic Completion Engine
 - Raw-idea project creation now completes missing structure by default so new users do not start from an empty shell
