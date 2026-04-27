@@ -3,6 +3,10 @@ import {
   inferFrameworkTemplateId,
 } from "@/application/templates/frameworkTemplates";
 import {
+  cleanOutcomeText,
+  cleanProblemText,
+  cleanRawIdeaText,
+  cleanTargetUserText,
   isActionableMvpItem,
   isExpansionItem,
   isOpportunityItem,
@@ -365,10 +369,10 @@ export const distillConversationToIntake = (
     [draft.title, draft.optionalSourceLabel, rawText].filter(Boolean).join(" "),
   );
   const template = getFrameworkTemplate(suggestedTemplateId);
-  const rawIdeaCandidate = firstSignalText(signals, "raw-idea") || firstStrongParagraph(rawText);
-  const problemCandidate = firstSignalText(signals, "problem");
-  const targetUserCandidate = firstSignalText(signals, "target-user");
-  const intendedOutcomeCandidate = firstSignalText(signals, "outcome");
+  const rawIdeaCandidate = cleanRawIdeaText(firstSignalText(signals, "raw-idea") || firstStrongParagraph(rawText));
+  const problemCandidate = cleanProblemText(firstSignalText(signals, "problem"));
+  const targetUserCandidate = cleanTargetUserText(firstSignalText(signals, "target-user"));
+  const intendedOutcomeCandidate = cleanOutcomeText(firstSignalText(signals, "outcome"));
   const corePrinciples = signalTexts(signals, ["principle"]).slice(0, 8);
   const mustRemainTrue = signalTexts(signals, ["invariant", "do-not-break"]).slice(0, 10);
   const mvpBoundary = signalTexts(signals, ["mvp"]).filter(isActionableMvpItem).slice(0, 14);

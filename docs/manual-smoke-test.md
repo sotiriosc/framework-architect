@@ -22,8 +22,11 @@ Use this checklist before deeper manual testing or release packaging.
 - [ ] Confirm extracted signals show confidence, source snippets, and reasons.
 - [ ] Confirm Raw idea / seed is visible and filled.
 - [ ] Confirm Target user is filled after distillation.
+- [ ] Confirm Target user is concise and does not include a needs sentence.
 - [ ] Confirm Problem is filled after distillation.
+- [ ] Confirm Problem does not start with "that".
 - [ ] Confirm Intended outcome is filled after distillation.
+- [ ] Confirm Intended outcome does not start with "that I can".
 - [ ] Confirm intended outcome text does not appear inside MVP boundary items.
 - [ ] Confirm target user/problem prose does not appear inside known risks.
 - [ ] Edit one distilled field.
@@ -152,6 +155,7 @@ Hidden opportunities:
 - [ ] Confirm a conversation-imported blueprint can export the Codex Task Pack.
 - [ ] Confirm the MVP Checklist does not include later or not-yet foresight items.
 - [ ] Confirm the MVP Checklist does not include intended outcome prose as an MVP item.
+- [ ] Confirm exports read naturally without awkward fragments like "reach that I can".
 
 ## Empty Blueprint Path
 - [ ] From the full workspace, create an empty blueprint.

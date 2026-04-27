@@ -1,5 +1,104 @@
 const normalize = (value: string): string => value.replace(/\s+/g, " ").trim();
 
+const stripTerminalSentencePunctuation = (value: string): string =>
+  value.replace(/[.!?]+$/g, "").trim();
+
+const capitalizeFirst = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  return `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1)}`;
+};
+
+const removeLeadingPhrase = (value: string, phrases: RegExp[]): string => {
+  let next = normalize(value);
+
+  phrases.forEach((phrase) => {
+    next = next.replace(phrase, "").trim();
+  });
+
+  return next;
+};
+
+const splitPersonaFromNeeds = (value: string): string =>
+  value
+    .replace(
+      /\.\s+(?:the\s+user|they|the\s+client|the\s+audience|the\s+customer)\s+(?:need|needs|should|must|want|wants|has to|have to)\b.*$/i,
+      "",
+    )
+    .trim();
+
+const readable = (value: string): string => capitalizeFirst(stripTerminalSentencePunctuation(normalize(value)));
+
+export const cleanExtractedFieldText = (value: string): string => {
+  const cleaned = removeLeadingPhrase(value, [
+    /^that\s+/i,
+    /^that\s+(?:i|we)\s+can\s+/i,
+    /^(?:i|we)\s+can\s+/i,
+    /^(?:i|we)\s+want\s+to\s+/i,
+  ]);
+
+  return readable(cleaned);
+};
+
+export const cleanTargetUserText = (value: string): string => {
+  const withoutNeeds = splitPersonaFromNeeds(normalize(value));
+  const withoutCue = removeLeadingPhrase(withoutNeeds, [
+    /^(?:the\s+)?target\s+user\s+is\s+/i,
+    /^(?:the\s+)?user\s+is\s+/i,
+    /^this\s+is\s+for\s+/i,
+    /^(?:the\s+)?audience\s+is\s+/i,
+    /^(?:the\s+)?client\s+is\s+/i,
+    /^(?:the\s+)?customer\s+is\s+/i,
+  ]);
+  const withoutArticle = withoutCue.replace(/^(?:a|an|the)\s+/i, "");
+
+  return readable(withoutArticle);
+};
+
+export const cleanProblemText = (value: string): string => {
+  const withoutCue = removeLeadingPhrase(value, [
+    /^(?:the\s+)?problem\s+is\s+/i,
+    /^(?:the\s+)?issue\s+is\s+/i,
+    /^(?:the\s+)?challenge\s+is\s+/i,
+    /^(?:the\s+)?friction\s+is\s+/i,
+    /^that\s+/i,
+  ]);
+
+  return readable(withoutCue);
+};
+
+export const cleanOutcomeText = (value: string): string => {
+  const withoutCue = removeLeadingPhrase(value, [
+    /^(?:the\s+)?intended\s+outcome\s+is\s+/i,
+    /^(?:the\s+)?outcome\s+is\s+/i,
+    /^(?:the\s+)?goal\s+is\s+/i,
+    /^success\s+means\s+/i,
+    /^the\s+result\s+should\s+be\s+/i,
+    /^that\s+(?:i|we)\s+can\s+/i,
+    /^(?:i|we)\s+can\s+/i,
+    /^that\s+/i,
+    /^(?:i|we)\s+want\s+to\s+/i,
+  ]);
+
+  return readable(withoutCue);
+};
+
+export const cleanRawIdeaText = (value: string): string => {
+  const withoutCue = removeLeadingPhrase(value, [
+    /^(?:the\s+)?idea\s+is\s+/i,
+    /^(?:raw\s+idea|idea|concept|summary)\s*[:\-]\s*/i,
+    /^(?:i|we)\s+want\s+to\s+/i,
+  ]);
+  const withoutArticle = withoutCue.replace(/^(?:a|an|the)\s+/i, "");
+
+  return readable(withoutArticle);
+};
+
+export const toReadableTitleFragment = (value: string): string => readable(cleanExtractedFieldText(value));
+
 export const isContextProse = (value: string): boolean => {
   const text = normalize(value).toLowerCase();
 

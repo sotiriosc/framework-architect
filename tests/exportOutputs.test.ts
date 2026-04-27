@@ -59,6 +59,13 @@ const praxisGuidedInput: GuidedIntakeInput = {
 
 const leakyGuidedInput: GuidedIntakeInput = {
   ...praxisGuidedInput,
+  projectName: "Praxis Agent Harness Feature",
+  rawIdea:
+    "The idea is a Praxis Agent Harness Feature that turns messy conversation notes into a governed blueprint and one bounded agent packet.",
+  targetUser:
+    "an independent builder working on Praxis features. The user needs to preserve intent before implementation.",
+  problem: "that feature ideas often start as scattered conversation and drift into implementation",
+  intendedOutcome: "that I can move from rough idea to validated Praxis feature plan",
   mvpBoundary: [
     "The intended outcome is that I can move from rough idea to a build-ready blueprint",
     "Import conversation or notes",
@@ -173,6 +180,21 @@ describe("blueprint exports", () => {
     expect(blueprint.failureModes.map((mode) => mode.description).join(" ")).toContain(
       "Codex may say tests passed when they were not actually run.",
     );
+  });
+
+  it("cleans awkward guided prose before exporting generated blueprints", () => {
+    const blueprint = composeBlueprintFromGuidedIntake(leakyGuidedInput);
+    const markdown = exportBlueprintMarkdown(blueprint);
+    const codexPrompt = exportCodexPrompt(blueprint);
+    const combined = `${markdown}\n${codexPrompt}`;
+
+    expect(combined).not.toContain("reach that I can");
+    expect(combined).not.toContain("Target user: an independent builder working on Praxis features. The user needs");
+    expect(combined).not.toContain("Problem: that feature ideas");
+    expect(combined).not.toContain("Praxis Agent Harness Feature: That I can");
+    expect(markdown).toContain("Independent builder working on Praxis features");
+    expect(markdown).toContain("Feature ideas often start as scattered conversation");
+    expect(markdown).toContain("Move from rough idea to validated Praxis feature plan");
   });
 
   it("exports implementation plan and Codex task pack artifacts", () => {

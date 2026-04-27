@@ -138,9 +138,9 @@ Hidden opportunities:
 
 const praxisProseFixture = `
 The idea is a Praxis Feature workflow that turns rough chat notes into a governed blueprint and task packet.
-The target user is an independent builder working on Praxis features.
-The problem is Praxis feature work can drift, break progression logic, and weaken phase gating.
-The intended outcome is that I can move from rough idea to a build-ready blueprint, bounded Codex task, and reviewed result report.
+The target user is an independent builder working on Praxis features. The user needs to preserve intent before implementation.
+The problem is that feature ideas often start as scattered conversation and drift into implementation.
+The intended outcome is that I can move from rough idea to validated Praxis feature plan with a bounded Codex task and reviewed result report.
 
 MVP boundary:
 - Import conversation or notes
@@ -150,7 +150,7 @@ MVP boundary:
 
 Known risks:
 - The target user is an independent builder working on Praxis features.
-- The problem is Praxis feature work can drift, break progression logic, and weaken phase gating.
+- The problem is that feature ideas often start as scattered conversation and drift into implementation.
 - Codex may say tests passed when they were not actually run.
 - The app might imply it executes Codex when it only prepares packets.
 
@@ -278,10 +278,13 @@ describe("conversation distillation", () => {
   it("extracts prose cues without leaking context into MVP or risk buckets", () => {
     const result = distillConversationToIntake(createDraft(praxisProseFixture, "Praxis Prose Fixture"));
 
-    expect(result.intake.rawIdeaCandidate).toMatch(/Praxis Feature workflow/i);
-    expect(result.intake.targetUserCandidate).toContain("independent builder working on Praxis features");
-    expect(result.intake.problemCandidate).toMatch(/can drift, break progression logic/i);
-    expect(result.intake.intendedOutcomeCandidate).toMatch(/move from rough idea to a build-ready blueprint/i);
+    expect(result.intake.rawIdeaCandidate).toMatch(/^Praxis Feature workflow/i);
+    expect(result.intake.targetUserCandidate).toBe("Independent builder working on Praxis features");
+    expect(result.intake.targetUserCandidate).not.toMatch(/The user needs/i);
+    expect(result.intake.problemCandidate).toMatch(/^Feature ideas often start/i);
+    expect(result.intake.problemCandidate).not.toMatch(/^that/i);
+    expect(result.intake.intendedOutcomeCandidate).toMatch(/^Move from rough idea/i);
+    expect(result.intake.intendedOutcomeCandidate).not.toMatch(/^that I can/i);
     expect(result.intake.mvpBoundary).toEqual(
       expect.arrayContaining([
         "Import conversation or notes",

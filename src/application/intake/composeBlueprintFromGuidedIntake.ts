@@ -5,9 +5,14 @@ import {
   type FrameworkTemplateId,
 } from "@/application/templates/frameworkTemplates";
 import {
+  cleanOutcomeText,
+  cleanProblemText,
+  cleanRawIdeaText,
+  cleanTargetUserText,
   filterContextProse,
   isActionableMvpItem,
   isExpansionItem,
+  toReadableTitleFragment,
 } from "@/application/intake/intakeTextFilters";
 import {
   createActor,
@@ -119,11 +124,11 @@ const normalizeInput = (
   template: FrameworkTemplateDefinition,
 ): NormalizedGuidedIntake => {
   const projectName = requireText(input.projectName, "Project name");
-  const rawIdea = requireText(input.rawIdea, "Raw idea");
+  const rawIdea = cleanRawIdeaText(requireText(input.rawIdea, "Raw idea"));
   const frameworkType = textOr(input.frameworkType, template.label);
-  const targetUser = textOr(input.targetUser, "the primary user");
-  const problem = textOr(input.problem, "The problem space needs explicit structure before implementation.");
-  const intendedOutcome = textOr(input.intendedOutcome, "a clear and buildable path forward");
+  const targetUser = textOr(cleanTargetUserText(input.targetUser), "Primary user");
+  const problem = textOr(cleanProblemText(input.problem), "The problem space needs explicit structure before implementation");
+  const intendedOutcome = textOr(cleanOutcomeText(input.intendedOutcome), "A clear and buildable path forward");
   const corePrinciples = uniqueList(input.corePrinciples, [
     "Make assumptions explicit",
     "Validate structure before build-ready claims",
@@ -363,17 +368,26 @@ const significantInvariantWords = (statement: string): string[] =>
 
 const titleFromWords = (words: string[]): string => words.map(titleWord).join(" ");
 
-const outcomeActionPhrase = (value: string): string => {
+const lowerFirst = (value: string): string => {
   const trimmed = value.trim();
-  if (/^(add|build|capture|clarify|create|define|deliver|export|generate|help|improve|make|map|prepare|produce|reduce|ship|support|turn|validate)\b/i.test(trimmed)) {
-    return trimmed;
+  if (!trimmed) {
+    return "";
   }
 
-  return `reach ${trimmed}`;
+  return `${trimmed.charAt(0).toLowerCase()}${trimmed.slice(1)}`;
+};
+
+const outcomeActionPhrase = (value: string): string => {
+  const trimmed = cleanOutcomeText(value);
+  if (/^(add|build|capture|clarify|create|define|deliver|distill|export|generate|help|implement|import|improve|inspect|make|map|move|paste|prepare|produce|reduce|review|ship|store|support|turn|validate)\b/i.test(trimmed)) {
+    return lowerFirst(trimmed);
+  }
+
+  return `reach ${lowerFirst(trimmed)}`;
 };
 
 const outcomeLabel = (projectName: string, intendedOutcome: string): string =>
-  `${projectName}: ${intendedOutcome.charAt(0).toUpperCase()}${intendedOutcome.slice(1)}`;
+  `${projectName}: ${toReadableTitleFragment(intendedOutcome)}`;
 
 const deriveInvariantName = (statement: string): string => {
   const normalized = statement.toLowerCase();
