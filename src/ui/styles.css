@@ -619,6 +619,11 @@ textarea {
   color: #23592f;
 }
 
+.status-banner--warning {
+  background: #fff2d0;
+  color: #6a4a11;
+}
+
 @media (max-width: 1100px) {
   .workspace-grid {
     grid-template-columns: 1fr;

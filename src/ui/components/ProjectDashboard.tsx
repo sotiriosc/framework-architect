@@ -8,6 +8,7 @@ type ProjectDashboardProps = {
   latestRevisionNumbers: Record<string, number | null>;
   onOpenProject: (projectId: string) => void;
   onCreateGuidedBlueprint: () => void;
+  onImportConversation: () => void;
 };
 
 const summarizeValidation = (validation: ValidationState) =>
@@ -25,19 +26,25 @@ export const ProjectDashboard = ({
   latestRevisionNumbers,
   onOpenProject,
   onCreateGuidedBlueprint,
+  onImportConversation,
 }: ProjectDashboardProps) => (
   <div className="dashboard-stack">
     <SectionCard
       title="Projects"
-      description="V1 loop: Idea -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Export."
+      description="V1 loop: Conversation or idea -> Template -> Blueprint -> Validation -> Quality -> Foresight -> Implementation Plan -> Export."
     >
       <div className="toolbar toolbar--split">
         <p className="muted">
           Local projects stay in browser storage with validation, memory snapshots, and revision history.
         </p>
-        <button type="button" onClick={onCreateGuidedBlueprint}>
-          Create guided framework
-        </button>
+        <div className="button-row">
+          <button type="button" onClick={onCreateGuidedBlueprint}>
+            Create guided framework
+          </button>
+          <button type="button" className="button-secondary" onClick={onImportConversation}>
+            Import conversation / notes
+          </button>
+        </div>
       </div>
 
       {projects.length === 0 ? (

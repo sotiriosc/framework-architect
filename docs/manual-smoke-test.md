@@ -8,6 +8,19 @@ Use this checklist before deeper manual testing or release packaging.
 - [ ] Confirm the generated project opens in the full workspace.
 - [ ] Confirm the project card shows the Praxis Feature template, validation summary, build-ready state, and latest revision.
 
+## Conversation Import
+- [ ] Open the dashboard.
+- [ ] Click Import conversation / notes.
+- [ ] Paste a transcript that includes raw idea, target user, problem, MVP, expansion, risks, and must-remain-true items.
+- [ ] Click Distill Conversation.
+- [ ] Confirm extracted intake fields are editable before save.
+- [ ] Confirm extracted signals show confidence, source snippets, and reasons.
+- [ ] Edit one distilled field.
+- [ ] Create blueprint from distilled intake.
+- [ ] Confirm the generated project opens in the full workspace.
+- [ ] Confirm project memory includes a conversation-import entry without storing the full pasted thread as memory text.
+- [ ] Confirm validation passes and the normal quality, foresight, implementation plan, and export loop remains available.
+
 ## Validation, Quality, Foresight, And Planning
 - [ ] In the workspace inspector, confirm Validation appears before Quality Review, Foresight appears before Implementation Plan, and Implementation Plan appears before Export.
 - [ ] Confirm Validation explains structural correctness and shows build-ready as yes for the guided blueprint.
@@ -44,6 +57,7 @@ Use this checklist before deeper manual testing or release packaging.
 - [ ] Confirm the Markdown export includes a concise foresight summary.
 - [ ] Confirm the Codex Prompt includes rules, invariants, guardrails, validation expectations, recommended future work, and do-not-build-yet guidance.
 - [ ] Confirm the Codex Task Pack includes Praxis do-not-break constraints for program generation, progression logic, phase gating, validation, existing tests, and coaching clarity.
+- [ ] Confirm a conversation-imported blueprint can export the Codex Task Pack.
 - [ ] Confirm the MVP Checklist does not include later or not-yet foresight items.
 
 ## Empty Blueprint Path

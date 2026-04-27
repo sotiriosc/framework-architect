@@ -4,9 +4,9 @@
 Framework Architect is intentionally local-first and architecture-first. The app captures a project idea as a governed blueprint and keeps governance concepts explicit instead of burying them in helper code.
 
 ## Current V1 Product Loop
-Idea -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Implementation Plan -> Codex Task Pack -> Export.
+Conversation / Notes -> Distilled Intake -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Implementation Plan -> Codex Task Pack -> Export.
 
-The primary UI path follows that order: dashboard and guided intake create a populated blueprint, the workspace shows structural validation first, quality review and safe fixes second, foresight third, implementation planning fourth, exports after that, and revision history after the current working state. Persistence status, quarantine recovery, memory snapshots, and raw blueprint JSON remain available as advanced diagnostics rather than the default read path.
+The primary UI path follows that order: dashboard import or guided intake creates a reviewable intake draft, blueprint creation produces a populated blueprint, the workspace shows structural validation first, quality review and safe fixes second, foresight third, implementation planning fourth, exports after that, and revision history after the current working state. Persistence status, quarantine recovery, memory snapshots, and raw blueprint JSON remain available as advanced diagnostics rather than the default read path.
 
 ## Top-Level Blueprint Contract
 The blueprint document contains:
@@ -61,6 +61,17 @@ Guided intake is an application-layer producer of normal blueprints. It does not
 - `BlueprintService.createProjectFromGuidedIntake(...)` persists the result through the standard stable save path
 
 Because guided output is saved through `BlueprintService`, it inherits schema parsing, stable change review, local-first persistence, memory snapshot creation, and revision recording.
+
+## Conversation Import And Thread Distillation
+Conversation import is an application-layer producer of editable guided intake fields. It does not store a second blueprint model and does not write project truth until the user approves creation.
+
+- `conversationImportTypes.ts` defines import drafts, distilled intake, signals, confidence, and result types
+- `distillConversationToIntake(...)` uses deterministic local heuristics: section headings, bullets, labels, repeated cues, and keywords such as problem, goal, user, client, audience, MVP, later, future, risk, must, should, invariant, and do not break
+- Extracted signals retain source snippets and reasons so the user can inspect why a field was suggested
+- Missing or weak extraction produces warnings instead of hallucinated fields
+- The review UI keeps extracted fields editable before blueprint creation
+- Creating a blueprint from distilled intake calls the same guided creation service path and therefore preserves schema validation, stable save review, local persistence, memory snapshots, revision history, and quarantine behavior
+- Source memory records that the blueprint came from a conversation import with source type and optional label, but avoids storing the full pasted transcript in memory
 
 ## Framework Template Layer
 The template layer is deterministic application logic above the domain model. It shapes generation without changing the `ProjectBlueprint` schema or bypassing validation.

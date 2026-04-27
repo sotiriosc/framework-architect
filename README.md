@@ -17,9 +17,9 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - expansion scope
 
 ## Current V1 Product Loop
-Idea -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Implementation Plan -> Codex Task Pack -> Export.
+Conversation / Notes -> Distilled Intake -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Implementation Plan -> Codex Task Pack -> Export.
 
-The default path is guided and populated: users choose or infer a template, generate a governed blueprint, review structural validation, inspect quality and next-best fixes, apply deterministic safe fixes when useful, review strategic foresight suggestions, sequence the MVP into bounded implementation tasks, then export implementation artifacts and Codex-ready task packs. The full editor remains available for manual architecture work, including the advanced empty-blueprint path.
+The default path is guided and populated: users can paste a messy conversation or start from a raw idea, review editable intake fields, choose or infer a template, generate a governed blueprint, review structural validation, inspect quality and next-best fixes, apply deterministic safe fixes when useful, review strategic foresight suggestions, sequence the MVP into bounded implementation tasks, then export implementation artifacts and Codex-ready task packs. The full editor remains available for manual architecture work, including the advanced empty-blueprint path.
 
 ## V1 Includes
 - Strong TypeScript domain types and Zod schemas
@@ -28,6 +28,7 @@ The default path is guided and populated: users choose or infer a template, gene
 - First-class per-project revision history with structural diffs
 - Validation rules for structural governance checks
 - Guided intake that turns structured project answers into a populated governed blueprint
+- Conversation import and deterministic thread distillation into editable guided intake fields
 - Template-guided generation for software apps, Praxis features, business systems, coaching systems, content/brand frameworks, books/white papers, SOP/workflows, and generic frameworks
 - Deterministic missing-structure completion for raw-idea projects
 - Relation-aware editing that shows human-readable entity names while preserving stored IDs
@@ -103,6 +104,14 @@ The default path is guided and populated: users choose or infer a template, gene
 - Selected templates shape generated domains, functions, components, rules, invariants, guardrails, phases, MVP items, expansion items, and failure modes while preserving the user's intake text
 - Generated MVP and expansion items reference valid outcome/function/component IDs so schema validation and relational validation remain meaningful
 - Guided creation still saves through `BlueprintService`, so schema parsing, validation, stable save review, local persistence, memory snapshots, and revision history are preserved
+
+## Conversation Import And Thread Distillation
+- Conversation import accepts pasted transcripts, notes, brainstorms, meetings, and other messy source text
+- Distillation is deterministic and local: it uses headings, bullets, repeated language, and keywords such as problem, goal, user, MVP, later, risk, must, should, and do not break
+- The distiller produces editable guided intake candidates, traceable extracted signals, confidence, and warnings
+- It does not create or mutate a blueprint until the user reviews the fields and chooses to create one
+- Conversation-created blueprints still use `BlueprintService.createProjectFromGuidedIntake(...)`, then validation, stable save review, memory snapshots, revision history, local persistence, and exports
+- Source memory records source type and optional label without storing the full pasted thread in memory, avoiding localStorage bloat
 
 ## Framework Templates
 - Template definitions live in `src/application/templates/frameworkTemplates.ts`

@@ -3,6 +3,7 @@ import { useState } from "react";
 import type { ProjectBlueprint } from "@/domain/models";
 import { ChangeReviewPanel } from "@/ui/components/ChangeReviewPanel";
 import { CollectionEditor } from "@/ui/components/CollectionEditor";
+import { ConversationImportPanel } from "@/ui/components/ConversationImportPanel";
 import { IntentOutcomeEditor } from "@/ui/components/IntentOutcomeEditor";
 import { ImplementationPlanPanel } from "@/ui/components/ImplementationPlanPanel";
 import { MemoryViewer } from "@/ui/components/MemoryViewer";
@@ -58,7 +59,7 @@ const updateCurrent = (
 
 const App = () => {
   const workspace = useBlueprintWorkspace();
-  const [activeView, setActiveView] = useState<"dashboard" | "wizard" | "workspace">("dashboard");
+  const [activeView, setActiveView] = useState<"dashboard" | "wizard" | "import" | "workspace">("dashboard");
   const [saveReason, setSaveReason] = useState("Manual blueprint update.");
   const [checkpointNote, setCheckpointNote] = useState("");
   const relationOptions = workspace.draftBlueprint ? buildRelationOptionGroups(workspace.draftBlueprint) : undefined;
@@ -136,6 +137,13 @@ const App = () => {
             onClick={() => setActiveView("wizard")}
           >
             New guided framework
+          </button>
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={() => setActiveView("import")}
+          >
+            Import conversation / notes
           </button>
           <button
             type="button"
@@ -227,6 +235,7 @@ const App = () => {
             latestRevisionNumbers={workspace.projectLatestRevisionNumbers}
             onOpenProject={openProjectWorkspace}
             onCreateGuidedBlueprint={() => setActiveView("wizard")}
+            onImportConversation={() => setActiveView("import")}
           />
         </main>
       ) : null}
@@ -237,6 +246,20 @@ const App = () => {
             draft={workspace.guidedIntakeDraft}
             onDraftChange={workspace.updateGuidedIntakeDraft}
             onCreate={createGuidedBlueprint}
+            onCancel={() => setActiveView("dashboard")}
+          />
+        </main>
+      ) : null}
+
+      {activeView === "import" ? (
+        <main>
+          <ConversationImportPanel
+            onCreateBlueprint={(draft, intake) => {
+              const created = workspace.createProjectFromDistilledConversation(draft, intake);
+              if (created) {
+                setActiveView("workspace");
+              }
+            }}
             onCancel={() => setActiveView("dashboard")}
           />
         </main>

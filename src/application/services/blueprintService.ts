@@ -39,6 +39,7 @@ import type {
 import { QuarantineExportDocumentSchema, QuarantinedPayloadSchema } from "@/persistence/types";
 import { ProjectBlueprintSchema } from "@/schema";
 import { createSeedBlueprint } from "@/seed/exampleBlueprint";
+import type { ConversationSourceType } from "@/application/import/conversationImportTypes";
 import {
   composeBlueprintFromGuidedIntake,
   type GuidedIntakeInput,
@@ -509,8 +510,31 @@ export class BlueprintService {
     return this.saveBlueprint(blueprint, "Initial empty blueprint created from raw idea.");
   }
 
-  createProjectFromGuidedIntake(input: GuidedIntakeInput): ProjectBlueprint {
+  createProjectFromGuidedIntake(
+    input: GuidedIntakeInput,
+    options?: {
+      conversationImport?: {
+        sourceType: ConversationSourceType;
+        optionalSourceLabel?: string;
+        title?: string;
+      };
+    },
+  ): ProjectBlueprint {
     const blueprint = composeBlueprintFromGuidedIntake(input);
+    if (options?.conversationImport) {
+      const label = options.conversationImport.optionalSourceLabel?.trim();
+      const title = options.conversationImport.title?.trim();
+      blueprint.memory.projectEntries = [
+        ...blueprint.memory.projectEntries,
+        createMemoryEntry({
+          type: "project",
+          relatedEntityIds: [blueprint.project.id, blueprint.intent.id],
+          summary: `Created from ${options.conversationImport.sourceType} conversation import${label ? ` (${label})` : title ? ` (${title})` : ""}.`,
+          reason: "Conversation import distilled into guided intake.",
+          tags: ["conversation-import", options.conversationImport.sourceType],
+        }),
+      ];
+    }
     return this.saveBlueprint(blueprint, "Initial project created from guided intake.");
   }
 

@@ -9,6 +9,10 @@ import {
   BlueprintService,
   type QuarantinePreviewResult,
 } from "@/application/services/blueprintService";
+import type {
+  ConversationImportDraft,
+  DistilledConversationIntake,
+} from "@/application/import/conversationImportTypes";
 import type { GuidedIntakeInput } from "@/application/intake/composeBlueprintFromGuidedIntake";
 import { getFrameworkTemplate, isFrameworkTemplateId } from "@/application/templates/frameworkTemplates";
 import type { ProjectBlueprint } from "@/domain/models";
@@ -114,6 +118,23 @@ const toGuidedIntakeInput = (draft: GuidedIntakeDraft): GuidedIntakeInput => {
     knownRisks: parseLines(draft.knownRisksText),
   };
 };
+
+const toGuidedInputFromDistilledConversation = (
+  intake: DistilledConversationIntake,
+): GuidedIntakeInput => ({
+  rawIdea: intake.rawIdeaCandidate.trim(),
+  projectName: intake.projectNameCandidate.trim(),
+  frameworkType: getFrameworkTemplate(intake.suggestedTemplateId).label,
+  frameworkTemplateId: intake.suggestedTemplateId,
+  targetUser: intake.targetUserCandidate.trim(),
+  problem: intake.problemCandidate.trim(),
+  intendedOutcome: intake.intendedOutcomeCandidate.trim(),
+  corePrinciples: intake.corePrinciples,
+  mustRemainTrue: intake.mustRemainTrue,
+  mvpBoundary: intake.mvpBoundary,
+  expansionIdeas: [...intake.expansionIdeas, ...intake.hiddenOpportunities.map((item) => `Opportunity: ${item}`)],
+  knownRisks: intake.knownRisks,
+});
 
 const buildProjectLatestRevisionNumbers = (projects: ProjectBlueprint[]): Record<string, number | null> =>
   projects.reduce<Record<string, number | null>>((accumulator, project) => {
@@ -484,6 +505,53 @@ export const useBlueprintWorkspace = () => {
         ...current,
         workspaceFeedback: null,
         error: error instanceof Error ? error.message : "Unable to create guided blueprint.",
+      }));
+      return null;
+    }
+  };
+
+  const createProjectFromDistilledConversation = (
+    draft: ConversationImportDraft,
+    intake: DistilledConversationIntake,
+  ): ProjectBlueprint | null => {
+    if (!intake.projectNameCandidate.trim() || !intake.rawIdeaCandidate.trim()) {
+      setState((current) => ({
+        ...current,
+        error: "Project name and raw idea are required before creating a blueprint from imported conversation.",
+      }));
+      return null;
+    }
+
+    try {
+      const created = blueprintService.createProjectFromGuidedIntake(
+        toGuidedInputFromDistilledConversation(intake),
+        {
+          conversationImport: {
+            sourceType: draft.sourceType,
+            optionalSourceLabel: draft.optionalSourceLabel,
+            title: draft.title,
+          },
+        },
+      );
+
+      refreshProjects(created.project.id, { preferLatestRevision: true });
+      setState((current) => ({
+        ...current,
+        draftBlueprint: structuredClone(created),
+        workspaceFeedback: {
+          tone: "success",
+          message: "Conversation import distilled into a blueprint and opened in the full workspace.",
+        },
+        pendingChangeReview: null,
+        error: null,
+      }));
+
+      return created;
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        workspaceFeedback: null,
+        error: error instanceof Error ? error.message : "Unable to create blueprint from conversation import.",
       }));
       return null;
     }
@@ -1013,6 +1081,7 @@ export const useBlueprintWorkspace = () => {
     updateCreateDraft,
     updateGuidedIntakeDraft,
     createProjectFromGuidedIntake,
+    createProjectFromDistilledConversation,
     updateDraftBlueprint,
     updateRecoveryDraft,
     importRecoveryDraftFile,
