@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type { ChangeReviewReady, StableSaveSource } from "@/application/review/buildChangeReview";
+import type { AgentRunJournalEntry } from "@/application/agent/agentRunTypes";
 import type {
   RevisionComparisonMode,
   RevisionComparisonResult,
@@ -70,6 +71,7 @@ type WorkspaceState = {
   workspaceFeedback: WorkspaceFeedback | null;
   pendingChangeReview: ChangeReviewReady | null;
   projectRevisions: BlueprintRevision[];
+  agentRunJournal: AgentRunJournalEntry[];
   selectedRevisionId: string | null;
   revisionCompareMode: RevisionComparisonMode;
   selectedCompareRevisionId: string | null;
@@ -174,6 +176,7 @@ const initializeWorkspace = (): WorkspaceState => {
     projects[0] ??
     null;
   const projectRevisions = blueprintService.listProjectRevisions(selectedProject?.project.id ?? null);
+  const agentRunJournal = blueprintService.listAgentRunJournal(selectedProject?.project.id ?? null);
   const selectedRevisionId = projectRevisions[0]?.id ?? null;
   const revisionComparisonState = resolveRevisionComparison({
     projectId: selectedProject?.project.id ?? null,
@@ -195,6 +198,7 @@ const initializeWorkspace = (): WorkspaceState => {
     workspaceFeedback: null,
     pendingChangeReview: null,
     projectRevisions,
+    agentRunJournal,
     selectedRevisionId,
     revisionCompareMode: "previous",
     selectedCompareRevisionId: revisionComparisonState.selectedCompareRevisionId,
@@ -233,6 +237,7 @@ export const useBlueprintWorkspace = () => {
 
     setState((current) => {
       const projectRevisions = blueprintService.listProjectRevisions(resolvedSelectedProjectId);
+      const agentRunJournal = blueprintService.listAgentRunJournal(resolvedSelectedProjectId);
       const selectedRevisionId =
         options?.preferLatestRevision
           ? projectRevisions[0]?.id ?? null
@@ -284,6 +289,7 @@ export const useBlueprintWorkspace = () => {
         workspaceFeedback: options?.preferLatestRevision ? current.workspaceFeedback : null,
         pendingChangeReview: null,
         projectRevisions,
+        agentRunJournal,
         selectedRevisionId,
         revisionCompareMode,
         selectedCompareRevisionId: revisionComparisonState.selectedCompareRevisionId,
@@ -365,6 +371,7 @@ export const useBlueprintWorkspace = () => {
   const selectProject = (projectId: string | null) => {
     const selected = blueprintService.selectProject(projectId);
     const projectRevisions = blueprintService.listProjectRevisions(selected?.project.id ?? null);
+    const agentRunJournal = blueprintService.listAgentRunJournal(selected?.project.id ?? null);
     const selectedRevisionId = projectRevisions[0]?.id ?? null;
     const revisionComparisonState = resolveRevisionComparison({
       projectId: selected?.project.id ?? null,
@@ -380,6 +387,7 @@ export const useBlueprintWorkspace = () => {
       workspaceFeedback: null,
       pendingChangeReview: null,
       projectRevisions,
+      agentRunJournal,
       selectedRevisionId,
       revisionCompareMode: "previous",
       selectedCompareRevisionId: revisionComparisonState.selectedCompareRevisionId,
@@ -1007,6 +1015,81 @@ export const useBlueprintWorkspace = () => {
     }
   };
 
+  const createAgentRunPacket = (taskId: string): AgentRunJournalEntry | null => {
+    if (!state.draftBlueprint) {
+      return null;
+    }
+
+    try {
+      const entry = blueprintService.createAgentRunPacket(
+        structuredClone(state.draftBlueprint),
+        taskId,
+      );
+      setState((current) => ({
+        ...current,
+        agentRunJournal: blueprintService.listAgentRunJournal(entry.projectId),
+        workspaceFeedback: {
+          tone: "success",
+          message: "Agent run packet created. Blueprint validation and revisions were not changed.",
+        },
+        error: null,
+      }));
+      return entry;
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        workspaceFeedback: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : `Unable to create agent run packet for task: ${taskId}.`,
+      }));
+      return null;
+    }
+  };
+
+  const reviewAgentRunResult = (
+    packetId: string,
+    rawResultText: string,
+  ): AgentRunJournalEntry | null => {
+    const projectId = state.selectedProjectId ?? state.draftBlueprint?.project.id ?? null;
+    if (!projectId) {
+      return null;
+    }
+
+    if (!rawResultText.trim()) {
+      setState((current) => ({
+        ...current,
+        error: "Paste an agent result before reviewing the run.",
+      }));
+      return null;
+    }
+
+    try {
+      const entry = blueprintService.reviewAgentRunResult(projectId, packetId, rawResultText);
+      setState((current) => ({
+        ...current,
+        agentRunJournal: blueprintService.listAgentRunJournal(projectId),
+        workspaceFeedback: {
+          tone: entry.review?.overall === "accepted" ? "success" : "error",
+          message:
+            entry.review?.overall === "accepted"
+              ? "Pasted agent result reviewed as accepted based on the report."
+              : "Pasted agent result reviewed. Followup may be needed before accepting it.",
+        },
+        error: null,
+      }));
+      return entry;
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        workspaceFeedback: null,
+        error: error instanceof Error ? error.message : "Unable to review pasted agent result.",
+      }));
+      return null;
+    }
+  };
+
   const confirmPendingChangeReview = () => {
     if (!state.pendingChangeReview) {
       return;
@@ -1102,6 +1185,8 @@ export const useBlueprintWorkspace = () => {
     addForesightItemAsDecision,
     addImplementationTaskAsDecision,
     addImplementationDeferredItemToExpansion,
+    createAgentRunPacket,
+    reviewAgentRunResult,
     confirmPendingChangeReview,
     dismissPendingChangeReview,
     reextractIntent,

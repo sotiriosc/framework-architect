@@ -25,7 +25,7 @@ import {
   type RevisionComparisonMode,
   type RevisionComparisonResult,
 } from "@/application/review/buildRevisionComparison";
-import { nowIso } from "@/lib/identity";
+import { createId, nowIso } from "@/lib/identity";
 import type { ProjectRepository } from "@/persistence/projectRepository";
 import type { BlueprintRevision, RevisionSource } from "@/persistence/revisionTypes";
 import type {
@@ -46,6 +46,10 @@ import {
 } from "@/application/intake/composeBlueprintFromGuidedIntake";
 import { completeBlueprintStructure } from "@/application/intake/completeBlueprintStructure";
 import { extractIntentFromRawIdea } from "@/application/intake/extractIntent";
+import { buildAgentRunPacket } from "@/application/agent/buildAgentRunPacket";
+import type { AgentRunJournalEntry } from "@/application/agent/agentRunTypes";
+import { parseAgentRunResult } from "@/application/agent/parseAgentRunResult";
+import { reviewAgentRunResult as reviewParsedAgentRunResult } from "@/application/agent/reviewAgentRunResult";
 import {
   buildImplementationPlan,
   findImplementationDeferredItem,
@@ -61,6 +65,10 @@ import {
   type BlueprintForesightItem,
 } from "@/application/review/buildBlueprintForesight";
 import { validateBlueprint } from "@/application/validation/validateBlueprint";
+import {
+  LocalAgentRunJournalRepository,
+  type AgentRunJournalRepository,
+} from "@/persistence/agentRunJournalRepository";
 
 const cloneBlueprint = (blueprint: ProjectBlueprint): ProjectBlueprint => structuredClone(blueprint);
 
@@ -308,7 +316,10 @@ const resolveRecoveryPayload = (
 };
 
 export class BlueprintService {
-  constructor(private readonly repository: ProjectRepository) {}
+  constructor(
+    private readonly repository: ProjectRepository,
+    private readonly agentRunJournalRepository: AgentRunJournalRepository = new LocalAgentRunJournalRepository(),
+  ) {}
 
   private defaultStableBoundaryReason(source: StableSaveSource): string {
     return source === "manualCheckpoint" ? "Manual checkpoint." : "Manual blueprint update.";
@@ -690,6 +701,58 @@ export class BlueprintService {
     next.validation = validateBlueprint(next);
 
     return this.saveBlueprint(next, `Added deferred implementation item to expansion: ${deferred.title}.`);
+  }
+
+  createAgentRunPacket(project: ProjectBlueprint, taskId: string): AgentRunJournalEntry {
+    const packet = buildAgentRunPacket(project, taskId);
+
+    if (!packet) {
+      throw new Error(`Unknown implementation task: ${taskId}`);
+    }
+
+    return this.agentRunJournalRepository.append({
+      id: createId("agentrun"),
+      projectId: project.project.id,
+      packetId: packet.id,
+      taskId: packet.taskId,
+      createdAt: nowIso(),
+      status: "packet-created",
+      packetSnapshot: packet,
+      notes: `Agent run packet created for "${packet.taskTitle}". Blueprint truth was not changed.`,
+    });
+  }
+
+  reviewAgentRunResult(
+    projectId: string,
+    packetId: string,
+    rawResultText: string,
+  ): AgentRunJournalEntry {
+    const entry = this.agentRunJournalRepository.get(packetId);
+
+    if (!entry || entry.projectId !== projectId) {
+      throw new Error(`Unknown agent run packet: ${packetId}`);
+    }
+
+    const resultDraft = parseAgentRunResult(rawResultText);
+    const review = reviewParsedAgentRunResult(entry.packetSnapshot, resultDraft);
+    const status =
+      review.overall === "accepted"
+        ? "accepted"
+        : review.overall === "needs-followup"
+          ? "needs-followup"
+          : "reviewed";
+
+    return this.agentRunJournalRepository.update({
+      ...entry,
+      status,
+      resultDraft,
+      review,
+      notes: `Agent run result reviewed. Overall: ${review.overall}. This review evaluates only the pasted report.`,
+    });
+  }
+
+  listAgentRunJournal(projectId: string | null): AgentRunJournalEntry[] {
+    return this.agentRunJournalRepository.list(projectId);
   }
 
   listQuarantinedPayloads(): QuarantinedPayload[] {

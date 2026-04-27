@@ -5,6 +5,7 @@ import { ChangeReviewPanel } from "@/ui/components/ChangeReviewPanel";
 import { CollectionEditor } from "@/ui/components/CollectionEditor";
 import { ConversationImportPanel } from "@/ui/components/ConversationImportPanel";
 import { IntentOutcomeEditor } from "@/ui/components/IntentOutcomeEditor";
+import { AgentRunHarnessPanel } from "@/ui/components/AgentRunHarnessPanel";
 import { ImplementationPlanPanel } from "@/ui/components/ImplementationPlanPanel";
 import { MemoryViewer } from "@/ui/components/MemoryViewer";
 import { BlueprintViewer } from "@/ui/components/BlueprintViewer";
@@ -664,6 +665,12 @@ const App = () => {
                 relationOptions={relationOptions}
                 onAddTaskAsDecision={workspace.addImplementationTaskAsDecision}
                 onAddDeferredToExpansion={workspace.addImplementationDeferredItemToExpansion}
+              />
+              <AgentRunHarnessPanel
+                blueprint={workspace.draftBlueprint}
+                journalEntries={workspace.agentRunJournal}
+                onCreatePacket={workspace.createAgentRunPacket}
+                onReviewResult={workspace.reviewAgentRunResult}
               />
               <ExportPanel blueprint={workspace.draftBlueprint} />
               <RevisionHistoryPanel

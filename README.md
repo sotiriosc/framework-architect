@@ -17,9 +17,9 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - expansion scope
 
 ## Current V1 Product Loop
-Conversation / Notes -> Distilled Intake -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Implementation Plan -> Codex Task Pack -> Export.
+Conversation / Notes -> Distilled Intake -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Implementation Plan -> Agent Run Packet -> External Execution -> Result Review -> Execution Journal -> Export.
 
-The default path is guided and populated: users can paste a messy conversation or start from a raw idea, review editable intake fields, choose or infer a template, generate a governed blueprint, review structural validation, inspect quality and next-best fixes, apply deterministic safe fixes when useful, review strategic foresight suggestions, sequence the MVP into bounded implementation tasks, then export implementation artifacts and Codex-ready task packs. The full editor remains available for manual architecture work, including the advanced empty-blueprint path.
+The default path is guided and populated: users can paste a messy conversation or start from a raw idea, review editable intake fields, choose or infer a template, generate a governed blueprint, review structural validation, inspect quality and next-best fixes, apply deterministic safe fixes when useful, review strategic foresight suggestions, sequence the MVP into bounded implementation tasks, generate one-task agent run packets, review pasted external execution reports, then export implementation artifacts and Codex-ready task packs. The full editor remains available for manual architecture work, including the advanced empty-blueprint path.
 
 ## V1 Includes
 - Strong TypeScript domain types and Zod schemas
@@ -36,6 +36,7 @@ The default path is guided and populated: users can paste a messy conversation o
 - Blueprint quality review and deterministic safe quality fixes
 - Strategic foresight and opportunity radar for future work, risks, experiments, metrics, tests, and Codex task seeds
 - Implementation task planner and Codex task pack exports
+- Agent Run Harness and local execution journal for bounded external Codex runs and pasted result review
 - Minimal UI for dashboard, guided creation, full editing, validation, quality review, foresight, implementation planning, exports, revision history, memory, and quarantine recovery
 - A seed example blueprint for inspection and iteration
 
@@ -141,7 +142,7 @@ The default path is guided and populated: users can paste a messy conversation o
 - JSON export writes the current `ProjectBlueprint` as formatted JSON
 - MVP checklist export creates a practical checklist from MVP scope items, phases, required functions, and validation blockers
 - Implementation Plan export writes the ordered task groups, test plan, risk controls, commit plan, and acceptance checklist
-- Codex Task Pack export writes multiple small implementation prompts with scope, likely files, tests, acceptance criteria, and do-not-break constraints
+- Codex Task Pack export writes multiple small implementation prompts with scope, likely files, tests, acceptance criteria, do-not-break constraints, and expected result report format guidance
 
 ## Quality Review And Safe Fixes
 - Validation answers whether the blueprint is structurally correct and build-ready
@@ -165,6 +166,13 @@ The default path is guided and populated: users can paste a messy conversation o
 - Codex prompts are intentionally bounded: each prompt names goal, scope, likely files, acceptance criteria, tests, do-not-break constraints, and asks Codex to summarize changed files
 - Deferred expansion and not-yet work stays out of MVP task groups and the MVP checklist
 - Selected planner items can be recorded as decision records or added to expansion scope through `BlueprintService`, preserving stable save review, validation, memory, and revision history
+
+## Agent Run Harness And Execution Journal
+- The harness turns one implementation task into a stricter Agent Run Packet with one-task scope, likely files, acceptance criteria, suggested tests, do-not-break constraints, do-not-touch guidance, risk notes, and an exact result report format
+- The app does not execute Codex, inspect the working tree, verify code, or merge changes; users copy the packet to an external agent and paste the result report back
+- The result parser extracts changed files, tests run, reported failures, followups, and summary from the pasted text
+- The result reviewer compares only the pasted evidence against the packet, marking missing tests, missing acceptance criteria, unexpected touched files, and do-not-break concerns honestly
+- Journal entries are stored in a separate localStorage key from active blueprints and revisions, so packet creation and result review do not mutate blueprint truth
 
 ## Governance Policy Metadata
 - Rules and invariants carry explicit `policy` metadata in the domain schema

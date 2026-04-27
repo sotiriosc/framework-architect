@@ -4,9 +4,9 @@
 Framework Architect is intentionally local-first and architecture-first. The app captures a project idea as a governed blueprint and keeps governance concepts explicit instead of burying them in helper code.
 
 ## Current V1 Product Loop
-Conversation / Notes -> Distilled Intake -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Implementation Plan -> Codex Task Pack -> Export.
+Conversation / Notes -> Distilled Intake -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Implementation Plan -> Agent Run Packet -> External Execution -> Result Review -> Execution Journal -> Export.
 
-The primary UI path follows that order: dashboard import or guided intake creates a reviewable intake draft, blueprint creation produces a populated blueprint, the workspace shows structural validation first, quality review and safe fixes second, foresight third, implementation planning fourth, exports after that, and revision history after the current working state. Persistence status, quarantine recovery, memory snapshots, and raw blueprint JSON remain available as advanced diagnostics rather than the default read path.
+The primary UI path follows that order: dashboard import or guided intake creates a reviewable intake draft, blueprint creation produces a populated blueprint, the workspace shows structural validation first, quality review and safe fixes second, foresight third, implementation planning fourth, the agent harness after planning, exports after that, and revision history after the current working state. Persistence status, quarantine recovery, memory snapshots, and raw blueprint JSON remain available as advanced diagnostics rather than the default read path.
 
 ## Top-Level Blueprint Contract
 The blueprint document contains:
@@ -107,7 +107,7 @@ Export generation is application-layer formatting on top of the current `Project
 - `exportBlueprintJson(...)` serializes the current schema-valid blueprint as formatted JSON
 - `exportMvpChecklist(...)` creates a checklist from MVP items, phases, functions, and validation blockers
 - `exportImplementationPlan(...)` serializes the ordered implementation plan, task groups, risks, tests, commit plan, and acceptance checklist
-- `exportCodexTaskPack(...)` serializes multiple small task prompts designed for bounded Codex work
+- `exportCodexTaskPack(...)` serializes multiple small task prompts designed for bounded Codex work and includes expected result report format guidance for harness review
 
 Markdown and Codex exports can include concise quality, foresight, and implementation plan summaries, but they still only serialize the current local state. The MVP checklist remains scoped to MVP work and does not include later, not-yet, or deferred implementation items.
 
@@ -148,6 +148,17 @@ Implementation planning is deterministic application logic above foresight. It t
 - `BlueprintService.addImplementationTaskAsDecision(...)` records one selected task as a decision record through the stable save path
 - `BlueprintService.addImplementationDeferredItemToExpansion(...)` appends one selected deferred item to expansion scope through the stable save path
 - Both service actions preserve validation, stable save review, local persistence, memory snapshots, revision history, and quarantine behavior
+
+## Agent Run Harness And Execution Journal
+The agent harness is deterministic workflow support around external execution. It is not an autonomous agent and does not run Codex directly.
+
+- `buildAgentRunPacket(...)` uses the implementation plan to find one selected task and returns a strict packet with project context, task scope, likely files, acceptance criteria, suggested tests, do-not-break constraints, do-not-touch guidance, risk notes, a prompt, and an expected report format
+- `parseAgentRunResult(...)` extracts changed files, tests run, reported failures, followups, and summary from pasted text using simple heading and bullet heuristics
+- `reviewAgentRunResult(...)` compares the pasted report against the packet and returns accepted, needs-followup, or unclear based only on reported evidence
+- The reviewer is intentionally conservative: missing changed files, missing tests, missing acceptance coverage, unexpected files, or do-not-break concerns prevent blind acceptance
+- `LocalAgentRunJournalRepository` stores journal entries under a separate localStorage key from projects, revisions, and quarantine
+- `BlueprintService.createAgentRunPacket(...)` and `BlueprintService.reviewAgentRunResult(...)` write journal entries only; they do not mutate the `ProjectBlueprint`, create revisions, or change validation state
+- Any future action that converts a reviewed run into a blueprint decision or scope item should use the existing stable save path
 
 ## Persistence Strategy
 The app uses a repository interface with a localStorage adapter. That keeps persistence replaceable so a future database layer can be added without rewriting domain, schema, or validation code.

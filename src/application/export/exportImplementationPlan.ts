@@ -12,6 +12,7 @@ export const exportImplementationPlan = (blueprint: ProjectBlueprint): string =>
       `Readiness: ${plan.readiness}`,
       `Suggested branch: ${plan.suggestedBranchName}`,
       plan.planSummary,
+      "Agent harness workflow: choose one task, generate an Agent Run Packet, execute it externally, paste the result report back, and review coverage before accepting the run.",
     ]),
     `## Recommended Build Order\n${bulletList(plan.recommendedBuildOrder, (item) => item)}`,
     `## Task Groups\n${bulletList(
