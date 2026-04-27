@@ -6,6 +6,7 @@ import { CollectionEditor } from "@/ui/components/CollectionEditor";
 import { ConversationImportPanel } from "@/ui/components/ConversationImportPanel";
 import { IntentOutcomeEditor } from "@/ui/components/IntentOutcomeEditor";
 import { AgentRunHarnessPanel } from "@/ui/components/AgentRunHarnessPanel";
+import { BlueprintLineagePanel } from "@/ui/components/BlueprintLineagePanel";
 import { ImplementationPlanPanel } from "@/ui/components/ImplementationPlanPanel";
 import { MemoryViewer } from "@/ui/components/MemoryViewer";
 import { BlueprintViewer } from "@/ui/components/BlueprintViewer";
@@ -672,7 +673,11 @@ const App = () => {
                 onCreatePacket={workspace.createAgentRunPacket}
                 onReviewResult={workspace.reviewAgentRunResult}
               />
-              <ExportPanel blueprint={workspace.draftBlueprint} />
+              <ExportPanel
+                blueprint={workspace.draftBlueprint}
+                revisions={workspace.projectRevisions}
+                agentRunJournal={workspace.agentRunJournal}
+              />
               <RevisionHistoryPanel
                 revisions={workspace.projectRevisions}
                 selectedRevision={
@@ -689,6 +694,11 @@ const App = () => {
                 onCompareModeChange={workspace.setRevisionCompareMode}
                 onCompareRevisionChange={workspace.selectCompareRevision}
                 onToggleSnapshotJson={workspace.toggleRevisionSnapshotJson}
+              />
+              <BlueprintLineagePanel
+                blueprint={workspace.draftBlueprint}
+                revisions={workspace.projectRevisions}
+                agentRunJournal={workspace.agentRunJournal}
               />
               {advancedStorageTools}
             </>

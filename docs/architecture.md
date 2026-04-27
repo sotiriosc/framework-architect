@@ -4,9 +4,9 @@
 Framework Architect is intentionally local-first and architecture-first. The app captures a project idea as a governed blueprint and keeps governance concepts explicit instead of burying them in helper code.
 
 ## Current V1 Product Loop
-Conversation / Notes -> Distilled Intake -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Implementation Plan -> Agent Run Packet -> External Execution -> Result Review -> Execution Journal -> Export.
+Conversation / Notes -> Distilled Intake -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Implementation Plan -> Agent Run Packet -> External Execution -> Result Review -> Execution Journal -> Source Lineage -> Export.
 
-The primary UI path follows that order: dashboard import or guided intake creates a reviewable intake draft, blueprint creation produces a populated blueprint, the workspace shows structural validation first, quality review and safe fixes second, foresight third, implementation planning fourth, the agent harness after planning, exports after that, and revision history after the current working state. Persistence status, quarantine recovery, memory snapshots, and raw blueprint JSON remain available as advanced diagnostics rather than the default read path.
+The primary UI path follows that order: dashboard import or guided intake creates a reviewable intake draft, blueprint creation produces a populated blueprint, the workspace shows structural validation first, quality review and safe fixes second, foresight third, implementation planning fourth, the agent harness after planning, exports after that, revision history after the current working state, and lineage after revision history. Persistence status, quarantine recovery, memory snapshots, and raw blueprint JSON remain available as advanced diagnostics rather than the default read path.
 
 ## V1 Scope / Out Of Scope
 In scope:
@@ -88,6 +88,18 @@ Conversation import is an application-layer producer of editable guided intake f
 - Creating a blueprint from distilled intake calls the same guided creation service path and therefore preserves schema validation, stable save review, local persistence, memory snapshots, revision history, and quarantine behavior
 - Source memory records that the blueprint came from a conversation import with source type and optional label, but avoids storing the full pasted transcript in memory
 
+## Source Lineage / Seed Provenance
+Source lineage is a deterministic read-only projection above the existing data model. It helps users understand where a blueprint came from, what shaped it, and what outputs or evidence exist without changing `ProjectBlueprint`.
+
+- `src/application/lineage/buildBlueprintLineage.ts` derives lineage from the current blueprint, memory entries, revision history, validation state, quality review, implementation planning, and Agent Run Journal
+- Seed provenance is inferred from conversation-import memory, recovery revisions, seed markers, empty-blueprint markers, guided-intake markers, or raw idea fallback
+- Orientation uses the existing template inference layer, core philosophy, and invariant priorities
+- Nourishment items include template shaping, conversation source memory, stable revisions, memory snapshots, validation, quality review, selected foresight and implementation actions, and agent runs
+- Fruit items include the current blueprint, export artifacts, implementation plan, Codex task pack, agent run packets, and agent result reviews
+- Trust levels keep boundaries visible: blueprint truth, derived artifact, external report, and advisory
+- Agent run results remain external reports. They can support review but do not become blueprint truth unless a later explicit stable-save action records a decision or scope change
+- Lineage report export is generated locally and deterministically; it does not persist export click history
+
 ## Framework Template Layer
 The template layer is deterministic application logic above the domain model. It shapes generation without changing the `ProjectBlueprint` schema or bypassing validation.
 
@@ -123,8 +135,9 @@ Export generation is application-layer formatting on top of the current `Project
 - `exportMvpChecklist(...)` creates a checklist from MVP items, phases, functions, and validation blockers
 - `exportImplementationPlan(...)` serializes the ordered implementation plan, task groups, risks, tests, commit plan, and acceptance checklist
 - `exportCodexTaskPack(...)` serializes multiple small task prompts designed for bounded Codex work and includes expected result report format guidance for harness review
+- `exportBlueprintLineage(...)` serializes seed provenance, orientation, nourishment, fruit, trust boundaries, and warnings
 
-Markdown and Codex exports can include concise quality, foresight, and implementation plan summaries, but they still only serialize the current local state. The MVP checklist remains scoped to MVP work and does not include later, not-yet, or deferred implementation items.
+Markdown and Codex exports can include concise quality, foresight, implementation plan, and lineage summaries, but they still only serialize the current local state. The Markdown architecture brief includes a short lineage summary rather than the full report. The MVP checklist remains scoped to MVP work and does not include later, not-yet, or deferred implementation items.
 
 The UI download panel only turns those local strings into files with project-slug filenames. Export behavior remains separate from validation, stable save review, memory, revision history, foresight actions, and quarantine recovery.
 

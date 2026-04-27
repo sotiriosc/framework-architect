@@ -1,14 +1,19 @@
 import { exportBlueprintJson } from "@/application/export/exportBlueprintJson";
+import { exportBlueprintLineage } from "@/application/export/exportBlueprintLineage";
 import { exportBlueprintMarkdown } from "@/application/export/exportBlueprintMarkdown";
 import { exportCodexPrompt } from "@/application/export/exportCodexPrompt";
 import { exportCodexTaskPack } from "@/application/export/exportCodexTaskPack";
 import { exportImplementationPlan } from "@/application/export/exportImplementationPlan";
 import { exportMvpChecklist } from "@/application/export/exportMvpChecklist";
+import type { AgentRunJournalEntry } from "@/application/agent/agentRunTypes";
 import type { ProjectBlueprint } from "@/domain/models";
+import type { BlueprintRevision } from "@/persistence/revisionTypes";
 import { SectionCard } from "@/ui/components/SectionCard";
 
 type ExportPanelProps = {
   blueprint: ProjectBlueprint | null;
+  revisions?: BlueprintRevision[];
+  agentRunJournal?: AgentRunJournalEntry[];
 };
 
 const downloadTextFile = (filename: string, content: string, mimeType: string) => {
@@ -26,7 +31,11 @@ const downloadTextFile = (filename: string, content: string, mimeType: string) =
 const filenameFor = (blueprint: ProjectBlueprint, suffix: string, extension: string): string =>
   `${blueprint.project.slug || "framework-blueprint"}-${suffix}.${extension}`;
 
-export const ExportPanel = ({ blueprint }: ExportPanelProps) => {
+export const ExportPanel = ({
+  blueprint,
+  revisions = [],
+  agentRunJournal = [],
+}: ExportPanelProps) => {
   if (!blueprint) {
     return (
       <SectionCard
@@ -46,7 +55,7 @@ export const ExportPanel = ({ blueprint }: ExportPanelProps) => {
           onClick={() =>
             downloadTextFile(
               filenameFor(blueprint, "architecture-brief", "md"),
-              exportBlueprintMarkdown(blueprint),
+              exportBlueprintMarkdown(blueprint, { revisions, agentRunJournal }),
               "text/markdown",
             )
           }
@@ -117,6 +126,19 @@ export const ExportPanel = ({ blueprint }: ExportPanelProps) => {
           }
         >
           Export MVP Checklist
+        </button>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() =>
+            downloadTextFile(
+              filenameFor(blueprint, "lineage-report", "md"),
+              exportBlueprintLineage({ blueprint, revisions, agentRunJournal }),
+              "text/markdown",
+            )
+          }
+        >
+          Export Lineage Report
         </button>
       </div>
     </SectionCard>

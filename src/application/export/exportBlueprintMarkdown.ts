@@ -1,9 +1,12 @@
 import type { ProjectBlueprint } from "@/domain/models";
+import type { AgentRunJournalEntry } from "@/application/agent/agentRunTypes";
 import { buildImplementationPlan } from "@/application/planning/buildImplementationPlan";
+import { buildBlueprintLineage } from "@/application/lineage/buildBlueprintLineage";
 import { buildBlueprintForesight } from "@/application/review/buildBlueprintForesight";
 import { buildBlueprintImprovementPlan } from "@/application/review/buildBlueprintImprovementPlan";
 import { buildBlueprintQualityReview } from "@/application/review/buildBlueprintQualityReview";
 import { describeFrameworkTemplateForBlueprint } from "@/application/templates/frameworkTemplates";
+import type { BlueprintRevision } from "@/persistence/revisionTypes";
 import {
   bulletList,
   createNameLookup,
@@ -26,10 +29,19 @@ import {
 
 export const exportBlueprintMarkdown = (
   blueprint: ProjectBlueprint,
-  options: { includeQualityReview?: boolean } = {},
+  options: {
+    includeQualityReview?: boolean;
+    revisions?: BlueprintRevision[];
+    agentRunJournal?: AgentRunJournalEntry[];
+  } = {},
 ): string => {
   const lookup = createNameLookup(blueprint);
   const template = describeFrameworkTemplateForBlueprint(blueprint);
+  const lineage = buildBlueprintLineage({
+    blueprint,
+    revisions: options.revisions ?? [],
+    agentRunJournal: options.agentRunJournal ?? [],
+  });
   const includeQualityReview = options.includeQualityReview ?? true;
   const qualityReview = includeQualityReview ? buildBlueprintQualityReview(blueprint) : null;
   const improvementPlan =
@@ -46,6 +58,12 @@ export const exportBlueprintMarkdown = (
       `Framework template: ${template.label}`,
       `Raw idea: ${blueprint.project.rawIdea}`,
       `Core philosophy: ${textOrFallback(blueprint.project.corePhilosophy)}`,
+    ]),
+    joinBlocks([
+      "## Lineage Summary",
+      lineage.summary,
+      `Seed: ${lineage.seed.sourceKind} - ${lineage.seed.sourceLabel}`,
+      "Boundary: Blueprint truth remains ProjectBlueprint; exports and agent reports are supporting artifacts.",
     ]),
     joinBlocks([
       "## Intent",

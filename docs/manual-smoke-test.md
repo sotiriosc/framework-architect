@@ -132,6 +132,17 @@ Hidden opportunities:
 - [ ] Confirm the execution journal stores the packet/review entry.
 - [ ] Confirm blueprint validation and revision history are unaffected by packet creation and pasted result review.
 
+## Source Lineage / Seed Provenance
+- [ ] Create or import a blueprint.
+- [ ] Open Source Lineage after Revision History in the workspace inspector.
+- [ ] Confirm Seed shows the source kind, source label, raw idea, and created timestamp when available.
+- [ ] Confirm Orientation shows the detected template and core philosophy.
+- [ ] Confirm Nourishment shows template, validation, quality review, memory/revision, and conversation or agent signals when present.
+- [ ] Confirm Fruit shows ProjectBlueprint, exports, implementation plan, Codex task pack, and any Agent Run Packet / Agent Result Review entries.
+- [ ] Confirm trust boundaries state that ProjectBlueprint is blueprint truth and exports are derived artifacts.
+- [ ] Confirm pasted agent run reports are labeled as external evidence and are not treated as blueprint truth.
+- [ ] Confirm Lineage warnings are understandable and do not imply external code/test verification.
+
 ## Save, Revisions, And Memory
 - [ ] Save the blueprint with a short save reason.
 - [ ] Create a manual checkpoint with a checkpoint note.
@@ -147,7 +158,10 @@ Hidden opportunities:
 - [ ] Export Codex Task Pack.
 - [ ] Export JSON.
 - [ ] Export MVP Checklist.
+- [ ] Export Lineage Report.
 - [ ] Confirm exported text keeps MVP and expansion scope distinct.
+- [ ] Confirm the Markdown export includes a concise lineage summary, not the full lineage report.
+- [ ] Confirm the Lineage Report includes seed, orientation, nourishment, fruit, trust boundaries, and warnings.
 - [ ] Confirm the Markdown export includes a concise foresight summary.
 - [ ] Confirm the Codex Prompt includes rules, invariants, guardrails, validation expectations, recommended future work, and do-not-build-yet guidance.
 - [ ] Confirm the Codex Task Pack includes Praxis do-not-break constraints for program generation, progression logic, phase gating, validation, existing tests, and coaching clarity.

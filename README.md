@@ -17,7 +17,7 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - expansion scope
 
 ## Current V1 Product Loop
-Conversation / Notes -> Distilled Intake -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Implementation Plan -> Agent Run Packet -> External Execution -> Result Review -> Execution Journal -> Export.
+Conversation / Notes -> Distilled Intake -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Implementation Plan -> Agent Run Packet -> External Execution -> Result Review -> Execution Journal -> Source Lineage -> Export.
 
 The default path is guided and populated: users can paste a messy conversation or start from a raw idea, review editable intake fields, choose or infer a template, generate a governed blueprint, review structural validation, inspect quality and next-best fixes, apply deterministic safe fixes when useful, review strategic foresight suggestions, sequence the MVP into bounded implementation tasks, generate one-task agent run packets, review pasted external execution reports, then export implementation artifacts and Codex-ready task packs. The full editor remains available for manual architecture work, including the advanced empty-blueprint path.
 
@@ -37,7 +37,8 @@ The default path is guided and populated: users can paste a messy conversation o
 - Strategic foresight and opportunity radar for future work, risks, experiments, metrics, tests, and Codex task seeds
 - Implementation task planner and Codex task pack exports
 - Agent Run Harness and local execution journal for bounded external Codex runs and pasted result review
-- Minimal UI for dashboard, guided creation, full editing, validation, quality review, foresight, implementation planning, exports, revision history, memory, and quarantine recovery
+- Source Lineage / Seed Provenance view and export for seed, template orientation, shaping inputs, produced artifacts, trust boundaries, and warnings
+- Minimal UI for dashboard, guided creation, full editing, validation, quality review, foresight, implementation planning, agent runs, exports, lineage, revision history, memory, and quarantine recovery
 - A seed example blueprint for inspection and iteration
 
 ## V1 Scope / Out Of Scope
@@ -56,7 +57,7 @@ Out of scope for this branch:
 ## Architecture Layers
 - `schema`: Zod contracts for every entity and the top-level blueprint
 - `domain`: shared types, defaults, and entity metadata
-- `application`: intake, validation, and persistence workflows
+- `application`: intake, validation, lineage, export, review, planning, agent harness, and persistence workflows
 - `persistence`: repository interface and localStorage adapter
 - `ui`: minimal React components and workspace flow
 
@@ -127,6 +128,15 @@ Out of scope for this branch:
 - Conversation-created blueprints still use `BlueprintService.createProjectFromGuidedIntake(...)`, then validation, stable save review, memory snapshots, revision history, local persistence, and exports
 - Source memory records source type and optional label without storing the full pasted thread in memory, avoiding localStorage bloat
 
+## Source Lineage / Seed Provenance
+- `buildBlueprintLineage(...)` derives a read-only lineage view from the current blueprint, memory, revision history, validation, quality review, implementation planning, and Agent Run Journal
+- Lineage identifies the likely seed source: raw idea, guided intake, conversation import, empty blueprint, recovery restore, seed example, or unknown
+- Orientation records the detected template, template label, core philosophy, and invariant priorities without adding fields to `ProjectBlueprint`
+- Nourishment items explain what shaped the blueprint: template signals, conversation source memory, stable revisions, memory snapshots, validation, quality review, selected foresight or implementation actions, and agent runs
+- Fruit items separate the current blueprint from derived artifacts such as Markdown, Codex Prompt, Implementation Plan, Codex Task Pack, JSON, MVP Checklist, Agent Run Packets, and Agent Result Reviews
+- Trust boundaries stay explicit: ProjectBlueprint is truth, exports are derived artifacts, agent reports are pasted external evidence, revisions are stable saved snapshots, and conversation import is reviewed before blueprint creation
+- The Lineage panel and Lineage Report are deterministic, local-only, and non-mutating
+
 ## Framework Templates
 - Template definitions live in `src/application/templates/frameworkTemplates.ts`
 - Supported templates are Software App, Praxis Feature, Business System, Coaching System, Content / Brand Framework, Book / White Paper, SOP / Workflow, and Generic Framework
@@ -156,6 +166,8 @@ Out of scope for this branch:
 - MVP checklist export creates a practical checklist from MVP scope items, phases, required functions, and validation blockers
 - Implementation Plan export writes the ordered task groups, test plan, risk controls, commit plan, and acceptance checklist
 - Codex Task Pack export writes multiple small implementation prompts with scope, likely files, tests, acceptance criteria, do-not-break constraints, and expected result report format guidance
+- Lineage Report export writes seed, orientation, nourishment, fruit, trust boundaries, and warnings
+- Markdown export includes only a concise lineage summary, not the full report
 
 ## Quality Review And Safe Fixes
 - Validation answers whether the blueprint is structurally correct and build-ready
