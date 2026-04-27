@@ -4,6 +4,7 @@ import type { ProjectBlueprint } from "@/domain/models";
 import { ChangeReviewPanel } from "@/ui/components/ChangeReviewPanel";
 import { CollectionEditor } from "@/ui/components/CollectionEditor";
 import { IntentOutcomeEditor } from "@/ui/components/IntentOutcomeEditor";
+import { ImplementationPlanPanel } from "@/ui/components/ImplementationPlanPanel";
 import { MemoryViewer } from "@/ui/components/MemoryViewer";
 import { BlueprintViewer } from "@/ui/components/BlueprintViewer";
 import { ExportPanel } from "@/ui/components/ExportPanel";
@@ -634,6 +635,12 @@ const App = () => {
                 relationOptions={relationOptions}
                 onAddToExpansion={workspace.addForesightItemToExpansion}
                 onAddAsDecision={workspace.addForesightItemAsDecision}
+              />
+              <ImplementationPlanPanel
+                blueprint={workspace.draftBlueprint}
+                relationOptions={relationOptions}
+                onAddTaskAsDecision={workspace.addImplementationTaskAsDecision}
+                onAddDeferredToExpansion={workspace.addImplementationDeferredItemToExpansion}
               />
               <ExportPanel blueprint={workspace.draftBlueprint} />
               <RevisionHistoryPanel

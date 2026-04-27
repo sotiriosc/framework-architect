@@ -1,6 +1,8 @@
 import { exportBlueprintJson } from "@/application/export/exportBlueprintJson";
 import { exportBlueprintMarkdown } from "@/application/export/exportBlueprintMarkdown";
 import { exportCodexPrompt } from "@/application/export/exportCodexPrompt";
+import { exportCodexTaskPack } from "@/application/export/exportCodexTaskPack";
+import { exportImplementationPlan } from "@/application/export/exportImplementationPlan";
 import { exportMvpChecklist } from "@/application/export/exportMvpChecklist";
 import type { ProjectBlueprint } from "@/domain/models";
 import { SectionCard } from "@/ui/components/SectionCard";
@@ -63,6 +65,32 @@ export const ExportPanel = ({ blueprint }: ExportPanelProps) => {
           }
         >
           Export Codex Prompt
+        </button>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() =>
+            downloadTextFile(
+              filenameFor(blueprint, "implementation-plan", "md"),
+              exportImplementationPlan(blueprint),
+              "text/markdown",
+            )
+          }
+        >
+          Export Implementation Plan
+        </button>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() =>
+            downloadTextFile(
+              filenameFor(blueprint, "codex-task-pack", "md"),
+              exportCodexTaskPack(blueprint),
+              "text/markdown",
+            )
+          }
+        >
+          Export Codex Task Pack
         </button>
         <button
           type="button"

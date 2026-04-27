@@ -46,6 +46,11 @@ import {
 import { completeBlueprintStructure } from "@/application/intake/completeBlueprintStructure";
 import { extractIntentFromRawIdea } from "@/application/intake/extractIntent";
 import {
+  buildImplementationPlan,
+  findImplementationDeferredItem,
+  findImplementationPlanTask,
+} from "@/application/planning/buildImplementationPlan";
+import {
   applyBlueprintImprovementFix,
   applySafeBlueprintImprovementFixes,
 } from "@/application/review/applyBlueprintImprovementFixes";
@@ -110,6 +115,11 @@ const findForesightItem = (
   }
 
   return item;
+};
+
+const validRelatedEntityIds = (blueprint: ProjectBlueprint, ids: string[]): string[] => {
+  const validIds = collectBlueprintEntityIds(blueprint);
+  return ids.filter((id) => validIds.has(id));
 };
 
 const appendMemorySnapshot = (
@@ -594,6 +604,68 @@ export class BlueprintService {
     next.validation = validateBlueprint(next);
 
     return this.saveBlueprint(next, `Recorded foresight decision: ${item.title}.`);
+  }
+
+  addImplementationTaskAsDecision(project: ProjectBlueprint, taskId: string): ProjectBlueprint {
+    const next = cloneBlueprint(project);
+    const plan = buildImplementationPlan(next);
+    const task = findImplementationPlanTask(plan, taskId);
+
+    if (!task) {
+      throw new Error(`Unknown implementation task: ${taskId}`);
+    }
+
+    const decision = createDecisionRecord();
+    decision.title = `Implementation task: ${task.title}`;
+    decision.summary = task.description;
+    decision.reason = `Selected from implementation plan. Acceptance: ${task.acceptanceCriteria.join(" ")}`;
+    decision.status = "proposed";
+    decision.relatedEntityIds = appendUnique(validRelatedEntityIds(next, task.relatedEntityIds), [next.project.id]);
+    decision.rejectedOptions = ["Rewrite the whole app instead of completing this bounded implementation task"];
+    decision.invariantConflicts = next.invariants.slice(0, 3).map((invariant) => invariant.name);
+    decision.scopeDecision = "architecture";
+
+    next.decisionLogic.records = [...next.decisionLogic.records, decision];
+    next.validation = validateBlueprint(next);
+
+    return this.saveBlueprint(next, `Recorded implementation task decision: ${task.title}.`);
+  }
+
+  addImplementationDeferredItemToExpansion(project: ProjectBlueprint, deferredItemId: string): ProjectBlueprint {
+    const next = cloneBlueprint(project);
+    const plan = buildImplementationPlan(next);
+    const deferred = findImplementationDeferredItem(plan, deferredItemId);
+
+    if (!deferred) {
+      throw new Error(`Unknown deferred implementation item: ${deferredItemId}`);
+    }
+
+    const scopeItem = createScopeItem(deferred.title);
+    const relatedIds = validRelatedEntityIds(next, deferred.relatedEntityIds);
+    scopeItem.description = deferred.description;
+    scopeItem.rationale = `Deferred implementation planning item from ${deferred.source}. Keep this outside MVP until intentionally accepted.`;
+    scopeItem.outcomeIds = relatedIds.filter((id) => next.outcomes.some((outcome) => outcome.id === id));
+    scopeItem.functionIds = relatedIds.filter((id) => next.functions.some((fn) => fn.id === id));
+    scopeItem.componentIds = relatedIds.filter((id) => next.components.some((component) => component.id === id));
+
+    if (
+      scopeItem.outcomeIds.length === 0 &&
+      scopeItem.functionIds.length === 0 &&
+      scopeItem.componentIds.length === 0
+    ) {
+      scopeItem.outcomeIds = next.outcomes.slice(0, 1).map((outcome) => outcome.id);
+    }
+
+    next.expansionScope.summary =
+      next.expansionScope.summary.trim() ||
+      "Future opportunities that should stay separate from the MVP until intentionally accepted.";
+    next.expansionScope.futureSignals = appendUnique(next.expansionScope.futureSignals, [
+      `Implementation deferred: ${deferred.title}`,
+    ]);
+    next.expansionScope.items = [...next.expansionScope.items, scopeItem];
+    next.validation = validateBlueprint(next);
+
+    return this.saveBlueprint(next, `Added deferred implementation item to expansion: ${deferred.title}.`);
   }
 
   listQuarantinedPayloads(): QuarantinedPayload[] {

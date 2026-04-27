@@ -893,6 +893,52 @@ export const useBlueprintWorkspace = () => {
     }
   };
 
+  const addImplementationTaskAsDecision = (taskId: string) => {
+    if (!state.draftBlueprint) {
+      return;
+    }
+
+    try {
+      const saved = blueprintService.addImplementationTaskAsDecision(
+        structuredClone(state.draftBlueprint),
+        taskId,
+      );
+      applyCommittedStableSave(saved, "Implementation task recorded as a decision.");
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        workspaceFeedback: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : `Unable to record implementation task decision: ${taskId}.`,
+      }));
+    }
+  };
+
+  const addImplementationDeferredItemToExpansion = (deferredItemId: string) => {
+    if (!state.draftBlueprint) {
+      return;
+    }
+
+    try {
+      const saved = blueprintService.addImplementationDeferredItemToExpansion(
+        structuredClone(state.draftBlueprint),
+        deferredItemId,
+      );
+      applyCommittedStableSave(saved, "Deferred implementation item added to expansion scope.");
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        workspaceFeedback: null,
+        error:
+          error instanceof Error
+            ? error.message
+            : `Unable to add deferred implementation item to expansion: ${deferredItemId}.`,
+      }));
+    }
+  };
+
   const confirmPendingChangeReview = () => {
     if (!state.pendingChangeReview) {
       return;
@@ -985,6 +1031,8 @@ export const useBlueprintWorkspace = () => {
     applyQualityFix,
     addForesightItemToExpansion,
     addForesightItemAsDecision,
+    addImplementationTaskAsDecision,
+    addImplementationDeferredItemToExpansion,
     confirmPendingChangeReview,
     dismissPendingChangeReview,
     reextractIntent,

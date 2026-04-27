@@ -1,4 +1,5 @@
 import type { ProjectBlueprint } from "@/domain/models";
+import { buildImplementationPlan } from "@/application/planning/buildImplementationPlan";
 import { buildBlueprintForesight } from "@/application/review/buildBlueprintForesight";
 import { buildBlueprintImprovementPlan } from "@/application/review/buildBlueprintImprovementPlan";
 import { buildBlueprintQualityReview } from "@/application/review/buildBlueprintQualityReview";
@@ -36,6 +37,7 @@ export const exportBlueprintMarkdown = (
       ? buildBlueprintImprovementPlan(blueprint)
       : null;
   const foresight = buildBlueprintForesight(blueprint);
+  const implementationPlan = buildImplementationPlan(blueprint);
 
   return `${joinBlocks([
     `# ${blueprint.project.name}`,
@@ -116,6 +118,13 @@ export const exportBlueprintMarkdown = (
       foresight.notYet.length > 0
         ? `Not yet:\n${bulletList(foresight.notYet.slice(0, 3), (item) => `${item.title} - ${item.whyNowOrLater}`)}`
         : "",
+    ]),
+    joinBlocks([
+      "## Implementation Plan Summary",
+      `Readiness: ${implementationPlan.readiness}`,
+      implementationPlan.planSummary,
+      `Recommended first task: ${implementationPlan.codexTaskPack[0]?.title ?? "No implementation task available."}`,
+      `Suggested branch: ${implementationPlan.suggestedBranchName}`,
     ]),
   ])}\n`;
 };

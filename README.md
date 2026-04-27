@@ -17,9 +17,9 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - expansion scope
 
 ## Current V1 Product Loop
-Idea -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Export.
+Idea -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Implementation Plan -> Codex Task Pack -> Export.
 
-The default path is guided and populated: users choose or infer a template, generate a governed blueprint, review structural validation, inspect quality and next-best fixes, apply deterministic safe fixes when useful, review strategic foresight suggestions, then export implementation artifacts. The full editor remains available for manual architecture work, including the advanced empty-blueprint path.
+The default path is guided and populated: users choose or infer a template, generate a governed blueprint, review structural validation, inspect quality and next-best fixes, apply deterministic safe fixes when useful, review strategic foresight suggestions, sequence the MVP into bounded implementation tasks, then export implementation artifacts and Codex-ready task packs. The full editor remains available for manual architecture work, including the advanced empty-blueprint path.
 
 ## V1 Includes
 - Strong TypeScript domain types and Zod schemas
@@ -34,7 +34,8 @@ The default path is guided and populated: users choose or infer a template, gene
 - Export outputs for Markdown architecture briefs, Codex prompts, JSON, and MVP checklists
 - Blueprint quality review and deterministic safe quality fixes
 - Strategic foresight and opportunity radar for future work, risks, experiments, metrics, tests, and Codex task seeds
-- Minimal UI for dashboard, guided creation, full editing, validation, quality review, foresight, exports, revision history, memory, and quarantine recovery
+- Implementation task planner and Codex task pack exports
+- Minimal UI for dashboard, guided creation, full editing, validation, quality review, foresight, implementation planning, exports, revision history, memory, and quarantine recovery
 - A seed example blueprint for inspection and iteration
 
 ## Architecture Layers
@@ -127,9 +128,11 @@ The default path is guided and populated: users choose or infer a template, gene
 ## Export Outputs
 - Completed blueprints can be exported locally from the workspace without a backend
 - Markdown export creates a full architecture brief with intent, structure, governance, scope, decisions, risks, validation, quality, and foresight summary
-- Codex prompt export turns the blueprint into an implementation prompt that preserves rules, invariants, MVP scope, validation expectations, template-specific implementation emphasis, and do-not-build-yet future work
+- Codex prompt export turns the blueprint into an implementation prompt that preserves rules, invariants, MVP scope, validation expectations, template-specific implementation emphasis, recommended first task, and do-not-build-yet future work
 - JSON export writes the current `ProjectBlueprint` as formatted JSON
 - MVP checklist export creates a practical checklist from MVP scope items, phases, required functions, and validation blockers
+- Implementation Plan export writes the ordered task groups, test plan, risk controls, commit plan, and acceptance checklist
+- Codex Task Pack export writes multiple small implementation prompts with scope, likely files, tests, acceptance criteria, and do-not-break constraints
 
 ## Quality Review And Safe Fixes
 - Validation answers whether the blueprint is structurally correct and build-ready
@@ -145,6 +148,14 @@ The default path is guided and populated: users choose or infer a template, gene
 - Selected foresight items can be added to expansion scope or recorded as decision records through `BlueprintService`
 - Those selected actions still validate, pass through stable save review, update memory, and record revision history
 - Template-specific patterns keep suggestions practical: Praxis features emphasize regression tests and do-not-break guidance, software apps emphasize onboarding/persistence/testing, business systems emphasize offer/customer/delivery/revenue validation, and other templates get matching next-step signals
+
+## Implementation Planning And Codex Task Packs
+- Implementation planning answers how to build the current validated blueprint in small, ordered steps
+- It is deterministic and uses the blueprint, template, validation, quality review, improvement plan, and foresight
+- The planner returns readiness, recommended build order, task groups, per-task Codex prompts, test guidance, risk controls, dependency warnings, do-not-break constraints, deferred items, branch names, commit plan, and final acceptance checklist
+- Codex prompts are intentionally bounded: each prompt names goal, scope, likely files, acceptance criteria, tests, do-not-break constraints, and asks Codex to summarize changed files
+- Deferred expansion and not-yet work stays out of MVP task groups and the MVP checklist
+- Selected planner items can be recorded as decision records or added to expansion scope through `BlueprintService`, preserving stable save review, validation, memory, and revision history
 
 ## Governance Policy Metadata
 - Rules and invariants carry explicit `policy` metadata in the domain schema

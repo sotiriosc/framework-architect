@@ -4,9 +4,9 @@
 Framework Architect is intentionally local-first and architecture-first. The app captures a project idea as a governed blueprint and keeps governance concepts explicit instead of burying them in helper code.
 
 ## Current V1 Product Loop
-Idea -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Export.
+Idea -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Implementation Plan -> Codex Task Pack -> Export.
 
-The primary UI path follows that order: dashboard and guided intake create a populated blueprint, the workspace shows structural validation first, quality review and safe fixes second, foresight third, exports after that, and revision history after the current working state. Persistence status, quarantine recovery, memory snapshots, and raw blueprint JSON remain available as advanced diagnostics rather than the default read path.
+The primary UI path follows that order: dashboard and guided intake create a populated blueprint, the workspace shows structural validation first, quality review and safe fixes second, foresight third, implementation planning fourth, exports after that, and revision history after the current working state. Persistence status, quarantine recovery, memory snapshots, and raw blueprint JSON remain available as advanced diagnostics rather than the default read path.
 
 ## Top-Level Blueprint Contract
 The blueprint document contains:
@@ -95,8 +95,10 @@ Export generation is application-layer formatting on top of the current `Project
 - `exportCodexPrompt(...)` creates an implementation prompt that carries governance constraints forward
 - `exportBlueprintJson(...)` serializes the current schema-valid blueprint as formatted JSON
 - `exportMvpChecklist(...)` creates a checklist from MVP items, phases, functions, and validation blockers
+- `exportImplementationPlan(...)` serializes the ordered implementation plan, task groups, risks, tests, commit plan, and acceptance checklist
+- `exportCodexTaskPack(...)` serializes multiple small task prompts designed for bounded Codex work
 
-Markdown and Codex exports can include concise quality and foresight summaries, but they still only serialize the current local state. The MVP checklist remains scoped to MVP work and does not include later or not-yet foresight items.
+Markdown and Codex exports can include concise quality, foresight, and implementation plan summaries, but they still only serialize the current local state. The MVP checklist remains scoped to MVP work and does not include later, not-yet, or deferred implementation items.
 
 The UI download panel only turns those local strings into files with project-slug filenames. Export behavior remains separate from validation, stable save review, memory, revision history, foresight actions, and quarantine recovery.
 
@@ -123,6 +125,18 @@ Foresight is deterministic application logic above validation and quality review
 - `BlueprintService.addForesightItemToExpansion(...)` appends one selected item to expansion scope through the stable save path
 - `BlueprintService.addForesightItemAsDecision(...)` records one selected item as a decision record through the stable save path
 - Both service actions parse, validate, review, persist, snapshot memory, and record revision history
+
+## Implementation Planner And Codex Task Pack
+Implementation planning is deterministic application logic above foresight. It turns the current blueprint into a staged build sequence without mutating the blueprint by default.
+
+- `buildImplementationPlan(...)` returns readiness, build order, task groups, Codex task pack, tests, risks, dependency warnings, do-not-break constraints, deferred items, branch names, commit plan, and final acceptance checklist
+- Readiness is derived from validation, quality, exports, MVP scope, functions, components, governance, and test signals
+- Template-specific task groups keep implementation focused: Praxis Feature emphasizes feature boundary, invariant protection, UI surface, regression tests, and Codex handoff; Software App emphasizes workflow, UI, data/persistence, validation, export/share, and tests; the other templates map to their own implementation concerns
+- Codex task prompts include goal, scope, likely files, acceptance criteria, tests to run, do-not-break constraints, and a changed-file summary instruction
+- Deferred expansion items and not-yet foresight remain outside MVP task groups
+- `BlueprintService.addImplementationTaskAsDecision(...)` records one selected task as a decision record through the stable save path
+- `BlueprintService.addImplementationDeferredItemToExpansion(...)` appends one selected deferred item to expansion scope through the stable save path
+- Both service actions preserve validation, stable save review, local persistence, memory snapshots, revision history, and quarantine behavior
 
 ## Persistence Strategy
 The app uses a repository interface with a localStorage adapter. That keeps persistence replaceable so a future database layer can be added without rewriting domain, schema, or validation code.

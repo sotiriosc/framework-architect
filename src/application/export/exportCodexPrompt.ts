@@ -1,4 +1,5 @@
 import type { ProjectBlueprint } from "@/domain/models";
+import { buildImplementationPlan } from "@/application/planning/buildImplementationPlan";
 import { buildBlueprintForesight } from "@/application/review/buildBlueprintForesight";
 import { buildBlueprintImprovementPlan } from "@/application/review/buildBlueprintImprovementPlan";
 import { buildBlueprintQualityReview } from "@/application/review/buildBlueprintQualityReview";
@@ -24,6 +25,7 @@ export const exportCodexPrompt = (blueprint: ProjectBlueprint): string => {
   const qualityReview = buildBlueprintQualityReview(blueprint);
   const improvementPlan = buildBlueprintImprovementPlan(blueprint);
   const foresight = buildBlueprintForesight(blueprint);
+  const implementationPlan = buildImplementationPlan(blueprint);
   const qualityWarnings = qualityReview.issues.filter(
     (issue) => issue.impact === "high" || issue.type === "export-readiness" || issue.type === "template-fit",
   );
@@ -77,6 +79,12 @@ export const exportCodexPrompt = (blueprint: ProjectBlueprint): string => {
       validationSummary(blueprint.validation),
       "Do not mark the implementation complete until critical validation blockers are resolved and the governed structure remains connected.",
     ]),
+    implementationPlan.codexTaskPack[0]
+      ? joinBlocks([
+          "## Recommended First Implementation Task",
+          implementationPlan.codexTaskPack[0].prompt,
+        ])
+      : "",
     futureWork.length > 0 || foresight.notYet.length > 0
       ? joinBlocks([
           "## Recommended Future Work / Do Not Build Yet",

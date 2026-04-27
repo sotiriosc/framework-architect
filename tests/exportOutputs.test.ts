@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { exportBlueprintJson } from "@/application/export/exportBlueprintJson";
 import { exportBlueprintMarkdown } from "@/application/export/exportBlueprintMarkdown";
+import { exportCodexTaskPack } from "@/application/export/exportCodexTaskPack";
 import { exportCodexPrompt } from "@/application/export/exportCodexPrompt";
+import { exportImplementationPlan } from "@/application/export/exportImplementationPlan";
 import { exportMvpChecklist } from "@/application/export/exportMvpChecklist";
 import {
   composeBlueprintFromGuidedIntake,
@@ -75,6 +77,7 @@ describe("blueprint exports", () => {
     expect(markdown).toContain("## Validation Summary");
     expect(markdown).toContain("## Quality Review");
     expect(markdown).toContain("## Foresight Summary");
+    expect(markdown).toContain("## Implementation Plan Summary");
   });
 
   it("exports a Codex prompt with governance and MVP scope", () => {
@@ -87,6 +90,7 @@ describe("blueprint exports", () => {
     expect(prompt).toContain(blueprint.invariants[0]?.name);
     expect(prompt).toContain("## MVP Scope (Build Now)");
     expect(prompt).toContain(blueprint.mvpScope.items[0]?.name);
+    expect(prompt).toContain("## Recommended First Implementation Task");
     expect(prompt).toContain("## Recommended Future Work / Do Not Build Yet");
     expect(prompt).toContain("Do not bypass governance constraints");
   });
@@ -139,6 +143,18 @@ describe("blueprint exports", () => {
     expect(checklist).toContain("Export JSON blueprint");
     expect(checklist).toContain("Export Codex task");
     expect(checklist).toContain("Codex Task Export");
+  });
+
+  it("exports implementation plan and Codex task pack artifacts", () => {
+    const blueprint = composeBlueprintFromGuidedIntake(praxisGuidedInput);
+    const implementationPlan = exportImplementationPlan(blueprint);
+    const taskPack = exportCodexTaskPack(blueprint);
+
+    expect(implementationPlan).toContain("## Task Groups");
+    expect(implementationPlan).toContain("## Final Acceptance Checklist");
+    expect(taskPack).toContain("## Task 1:");
+    expect(taskPack).toContain("Do not break:");
+    expect(taskPack).toContain("Acceptance criteria:");
   });
 
   it("includes Codex quality warnings only when relevant", () => {
