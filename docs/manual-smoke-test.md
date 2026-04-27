@@ -2,6 +2,11 @@
 
 Use this checklist before deeper manual testing or release packaging.
 
+## V1 Scope Boundaries
+- [ ] Confirm the app remains local-first and does not require auth, backend services, cloud sync, billing, or external AI calls.
+- [ ] Confirm Agent Run Harness copy says the app reviews pasted reports and does not execute or verify code directly.
+- [ ] Treat the Vite chunk-size warning during build as known and non-blocking for V1 unless a functional regression appears.
+
 ## Guided Creation
 - [ ] Open the dashboard.
 - [ ] Create a guided Praxis Feature blueprint.

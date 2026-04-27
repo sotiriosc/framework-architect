@@ -40,6 +40,19 @@ The default path is guided and populated: users can paste a messy conversation o
 - Minimal UI for dashboard, guided creation, full editing, validation, quality review, foresight, implementation planning, exports, revision history, memory, and quarantine recovery
 - A seed example blueprint for inspection and iteration
 
+## V1 Scope / Out Of Scope
+In scope for this branch:
+- Local-first blueprint creation and editing
+- Deterministic governance, validation, quality review, foresight, implementation planning, agent run harness, and exports
+- Guided generation from raw ideas or distilled conversations
+- Stable save review, memory snapshots, revision history, migration, and quarantine recovery
+
+Out of scope for this branch:
+- Autonomous execution or in-app code running
+- Backend collaboration, cloud sync, or database persistence
+- Real code verification beyond user-pasted reports and deterministic checks
+- Account system, authentication, billing, or external AI calls
+
 ## Architecture Layers
 - `schema`: Zod contracts for every entity and the top-level blueprint
 - `domain`: shared types, defaults, and entity metadata
@@ -227,6 +240,8 @@ npm run dev
 npm run build
 npm run test
 ```
+
+The current Vite production build can emit a chunk-size warning. This is known and non-blocking for V1; no major code-splitting work is planned on this stabilization branch.
 
 ## Manual Smoke Test
 Use `docs/manual-smoke-test.md` for the V1 release-readiness checklist.

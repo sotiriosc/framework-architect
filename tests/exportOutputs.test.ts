@@ -152,7 +152,10 @@ describe("blueprint exports", () => {
 
     expect(implementationPlan).toContain("## Task Groups");
     expect(implementationPlan).toContain("## Final Acceptance Checklist");
+    expect(implementationPlan).toContain("Agent Run Harness workflow");
+    expect(implementationPlan).toContain("does not execute or verify code directly");
     expect(taskPack).toContain("## Task 1:");
+    expect(taskPack).toContain("## Expected Result Report Format");
     expect(taskPack).toContain("Do not break:");
     expect(taskPack).toContain("Acceptance criteria:");
   });

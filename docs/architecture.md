@@ -8,6 +8,21 @@ Conversation / Notes -> Distilled Intake -> Template -> Blueprint -> Validation 
 
 The primary UI path follows that order: dashboard import or guided intake creates a reviewable intake draft, blueprint creation produces a populated blueprint, the workspace shows structural validation first, quality review and safe fixes second, foresight third, implementation planning fourth, the agent harness after planning, exports after that, and revision history after the current working state. Persistence status, quarantine recovery, memory snapshots, and raw blueprint JSON remain available as advanced diagnostics rather than the default read path.
 
+## V1 Scope / Out Of Scope
+In scope:
+- Local-first blueprint creation, editing, storage migration, and quarantine recovery
+- Deterministic governance, validation, quality review, safe fixes, foresight, implementation planning, agent run harness, and exports
+- Guided generation from raw ideas or distilled conversations
+- Stable save review, memory snapshots, revision history, and relation-aware editing
+
+Out of scope:
+- Autonomous execution or in-app code running
+- Backend collaboration, cloud sync, or database persistence
+- Real code verification beyond user-pasted reports and deterministic checks
+- Account system, authentication, billing, or external AI calls
+
+The current production build can emit a Vite chunk-size warning. It is known and non-blocking for V1; major code splitting is intentionally left outside this stabilization branch.
+
 ## Top-Level Blueprint Contract
 The blueprint document contains:
 - project
