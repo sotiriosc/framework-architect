@@ -220,7 +220,10 @@ export const ConversationImportPanel = ({
               </select>
             </label>
             <label className="field field--full">
-              <span>Raw idea</span>
+              <span>Raw idea / seed</span>
+              <small className="muted">
+                This becomes the source idea for the blueprint. Edit it if the distiller missed the main point.
+              </small>
               <textarea
                 rows={4}
                 value={editableIntake.rawIdeaCandidate}
@@ -233,6 +236,9 @@ export const ConversationImportPanel = ({
                 value={editableIntake.targetUserCandidate}
                 onChange={(event) => updateIntake("targetUserCandidate", event.target.value)}
               />
+              {!editableIntake.targetUserCandidate.trim() ? (
+                <small className="muted">Not confidently found - edit before creating blueprint.</small>
+              ) : null}
             </label>
             <label className="field">
               <span>Intended outcome</span>
@@ -240,6 +246,9 @@ export const ConversationImportPanel = ({
                 value={editableIntake.intendedOutcomeCandidate}
                 onChange={(event) => updateIntake("intendedOutcomeCandidate", event.target.value)}
               />
+              {!editableIntake.intendedOutcomeCandidate.trim() ? (
+                <small className="muted">Not confidently found - edit before creating blueprint.</small>
+              ) : null}
             </label>
             <label className="field field--full">
               <span>Problem</span>
@@ -248,6 +257,9 @@ export const ConversationImportPanel = ({
                 value={editableIntake.problemCandidate}
                 onChange={(event) => updateIntake("problemCandidate", event.target.value)}
               />
+              {!editableIntake.problemCandidate.trim() ? (
+                <small className="muted">Not confidently found - edit before creating blueprint.</small>
+              ) : null}
             </label>
             <label className="field field--full">
               <span>Core principles</span>

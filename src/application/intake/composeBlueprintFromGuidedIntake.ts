@@ -5,6 +5,11 @@ import {
   type FrameworkTemplateId,
 } from "@/application/templates/frameworkTemplates";
 import {
+  filterContextProse,
+  isActionableMvpItem,
+  isExpansionItem,
+} from "@/application/intake/intakeTextFilters";
+import {
   createActor,
   createComponent,
   createConstraint,
@@ -131,9 +136,15 @@ const normalizeInput = (
   const templateInvariants = template.suggestedInvariants.filter(
     (invariant) => !mustRemainTrue.some((item) => item.toLowerCase() === invariant.toLowerCase()),
   );
-  const mvpBoundary = uniqueList(input.mvpBoundary, template.suggestedMvpItems);
-  const expansionIdeas = uniqueList(input.expansionIdeas, template.suggestedExpansionItems);
-  const knownRisks = uniqueList(input.knownRisks, template.suggestedFailureModes);
+  const mvpBoundary = uniqueList(
+    input.mvpBoundary.filter(isActionableMvpItem),
+    template.suggestedMvpItems,
+  );
+  const expansionIdeas = uniqueList(
+    input.expansionIdeas.filter(isExpansionItem),
+    template.suggestedExpansionItems,
+  );
+  const knownRisks = uniqueList(filterContextProse(input.knownRisks), template.suggestedFailureModes);
 
   return {
     rawIdea,

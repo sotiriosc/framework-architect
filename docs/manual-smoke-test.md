@@ -20,6 +20,12 @@ Use this checklist before deeper manual testing or release packaging.
 - [ ] Click Distill Conversation.
 - [ ] Confirm extracted intake fields are editable before save.
 - [ ] Confirm extracted signals show confidence, source snippets, and reasons.
+- [ ] Confirm Raw idea / seed is visible and filled.
+- [ ] Confirm Target user is filled after distillation.
+- [ ] Confirm Problem is filled after distillation.
+- [ ] Confirm Intended outcome is filled after distillation.
+- [ ] Confirm intended outcome text does not appear inside MVP boundary items.
+- [ ] Confirm target user/problem prose does not appear inside known risks.
 - [ ] Edit one distilled field.
 - [ ] Create blueprint from distilled intake.
 - [ ] Confirm the generated project opens in the full workspace.
@@ -145,6 +151,7 @@ Hidden opportunities:
 - [ ] Confirm the Codex Task Pack includes expected result report format guidance for the Agent Run Harness.
 - [ ] Confirm a conversation-imported blueprint can export the Codex Task Pack.
 - [ ] Confirm the MVP Checklist does not include later or not-yet foresight items.
+- [ ] Confirm the MVP Checklist does not include intended outcome prose as an MVP item.
 
 ## Empty Blueprint Path
 - [ ] From the full workspace, create an empty blueprint.

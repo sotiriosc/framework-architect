@@ -2,6 +2,12 @@ import {
   getFrameworkTemplate,
   inferFrameworkTemplateId,
 } from "@/application/templates/frameworkTemplates";
+import {
+  isActionableMvpItem,
+  isExpansionItem,
+  isOpportunityItem,
+  isRiskItem,
+} from "@/application/intake/intakeTextFilters";
 import type {
   ConversationDistillationResult,
   ConversationImportDraft,
@@ -76,6 +82,27 @@ const labelPatterns: Array<[DistilledSignalKind, RegExp]> = [
   ["implementation", /^(?:implementation|codex task|task|test|export|build sequence)\s*[:\-]\s*(.+)$/i],
 ];
 
+const proseCuePatterns: Array<[DistilledSignalKind, RegExp]> = [
+  ["target-user", /^(?:the\s+)?target user\s+is\s+(.+)$/i],
+  ["target-user", /^(?:the\s+)?user\s+is\s+(.+)$/i],
+  ["target-user", /^this is for\s+(.+)$/i],
+  ["target-user", /^(?:the\s+)?audience\s+is\s+(.+)$/i],
+  ["target-user", /^(?:the\s+)?client\s+is\s+(.+)$/i],
+  ["problem", /^(?:the\s+)?problem\s+is\s+(.+)$/i],
+  ["problem", /^(?:the\s+)?issue\s+is\s+(.+)$/i],
+  ["problem", /^(?:the\s+)?challenge\s+is\s+(.+)$/i],
+  ["problem", /^(?:the\s+)?friction\s+is\s+(.+)$/i],
+  ["outcome", /^(?:the\s+)?intended outcome\s+is\s+(.+)$/i],
+  ["outcome", /^(?:the\s+)?goal\s+is\s+(.+)$/i],
+  ["outcome", /^(?:the\s+)?outcome\s+is\s+(.+)$/i],
+  ["outcome", /^success means\s+(.+)$/i],
+  ["outcome", /^the result should be\s+(.+)$/i],
+  ["raw-idea", /^(?:i|we)\s+want to build\s+(.+)$/i],
+  ["raw-idea", /^build\s+(.+)$/i],
+  ["raw-idea", /^create\s+(.+)$/i],
+  ["raw-idea", /^the idea is\s+(.+)$/i],
+];
+
 const normalizeWhitespace = (value: string): string => value.replace(/\s+/g, " ").trim();
 
 const stripSpeakerAndBullet = (value: string): string =>
@@ -104,6 +131,29 @@ const textAfterLabel = (line: string): { kind: DistilledSignalKind; text: string
   return null;
 };
 
+const textAfterProseCue = (
+  line: CandidateLine,
+): { kind: DistilledSignalKind; text: string } | null => {
+  for (const [kind, pattern] of proseCuePatterns) {
+    const match = line.text.match(pattern);
+    if (!match?.[1]?.trim()) {
+      continue;
+    }
+
+    if (kind === "raw-idea" && line.section && line.section !== "raw-idea") {
+      continue;
+    }
+
+    const text = normalizeWhitespace(match[1]);
+    return {
+      kind,
+      text: kind === "raw-idea" && /^(build|create)\s/i.test(line.text) ? line.text : text,
+    };
+  }
+
+  return null;
+};
+
 const includesKeyword = (value: string, keywords: string[]): boolean => {
   const normalized = value.toLowerCase();
   return keywords.some((keyword) => normalized.includes(keyword.toLowerCase()));
@@ -116,6 +166,15 @@ const kindForLine = (line: CandidateLine): { kind: DistilledSignalKind; confiden
       kind: labeled.kind,
       confidence: "high",
       reason: "Extracted from an explicit label.",
+    };
+  }
+
+  const proseCue = textAfterProseCue(line);
+  if (proseCue) {
+    return {
+      kind: proseCue.kind,
+      confidence: "high",
+      reason: "Extracted from an explicit prose cue.",
     };
   }
 
@@ -163,6 +222,16 @@ const cleanExtractedText = (line: string): string => {
   const labeled = textAfterLabel(line);
   if (labeled) {
     return labeled.text;
+  }
+
+  const proseCue = textAfterProseCue({
+    original: line,
+    text: stripSpeakerAndBullet(line),
+    section: null,
+    index: 0,
+  });
+  if (proseCue) {
+    return proseCue.text;
   }
 
   return stripSpeakerAndBullet(line)
@@ -302,10 +371,12 @@ export const distillConversationToIntake = (
   const intendedOutcomeCandidate = firstSignalText(signals, "outcome");
   const corePrinciples = signalTexts(signals, ["principle"]).slice(0, 8);
   const mustRemainTrue = signalTexts(signals, ["invariant", "do-not-break"]).slice(0, 10);
-  const mvpBoundary = signalTexts(signals, ["mvp"]).slice(0, 14);
-  const expansionIdeas = signalTexts(signals, ["expansion"]).slice(0, 10);
-  const knownRisks = signalTexts(signals, ["risk"]).slice(0, 10);
-  const hiddenOpportunities = signalTexts(signals, ["opportunity", "implementation"]).slice(0, 10);
+  const mvpBoundary = signalTexts(signals, ["mvp"]).filter(isActionableMvpItem).slice(0, 14);
+  const expansionIdeas = signalTexts(signals, ["expansion"]).filter(isExpansionItem).slice(0, 10);
+  const knownRisks = signalTexts(signals, ["risk"]).filter(isRiskItem).slice(0, 10);
+  const hiddenOpportunities = signalTexts(signals, ["opportunity", "implementation"])
+    .filter(isOpportunityItem)
+    .slice(0, 10);
   const lowConfidenceCount = signals.filter((signal) => signal.confidence === "low").length;
   const warnings: string[] = [];
 

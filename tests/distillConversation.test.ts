@@ -136,6 +136,28 @@ Hidden opportunities:
 - Praxis can use this to build features more safely
 `;
 
+const praxisProseFixture = `
+The idea is a Praxis Feature workflow that turns rough chat notes into a governed blueprint and task packet.
+The target user is an independent builder working on Praxis features.
+The problem is Praxis feature work can drift, break progression logic, and weaken phase gating.
+The intended outcome is that I can move from rough idea to a build-ready blueprint, bounded Codex task, and reviewed result report.
+
+MVP boundary:
+- Import conversation or notes
+- MVP: The intended outcome is that I can move from rough idea to a build-ready blueprint
+- Generate one Agent Run Packet for one implementation task
+- Store the result in the execution journal
+
+Known risks:
+- The target user is an independent builder working on Praxis features.
+- The problem is Praxis feature work can drift, break progression logic, and weaken phase gating.
+- Codex may say tests passed when they were not actually run.
+- The app might imply it executes Codex when it only prepares packets.
+
+Hidden opportunities:
+- The app can become a governance harness around AI-assisted development.
+`;
+
 const toGuidedInput = (intake: DistilledConversationIntake): GuidedIntakeInput => ({
   rawIdea: intake.rawIdeaCandidate,
   projectName: intake.projectNameCandidate,
@@ -251,5 +273,27 @@ describe("conversation distillation", () => {
     expect(result.intake.knownRisks.join(" ")).toMatch(/not covered or not run/i);
     expect(result.intake.hiddenOpportunities.join(" ")).toMatch(/governance harness/i);
     expect(result.warnings).toEqual([]);
+  });
+
+  it("extracts prose cues without leaking context into MVP or risk buckets", () => {
+    const result = distillConversationToIntake(createDraft(praxisProseFixture, "Praxis Prose Fixture"));
+
+    expect(result.intake.rawIdeaCandidate).toMatch(/Praxis Feature workflow/i);
+    expect(result.intake.targetUserCandidate).toContain("independent builder working on Praxis features");
+    expect(result.intake.problemCandidate).toMatch(/can drift, break progression logic/i);
+    expect(result.intake.intendedOutcomeCandidate).toMatch(/move from rough idea to a build-ready blueprint/i);
+    expect(result.intake.mvpBoundary).toEqual(
+      expect.arrayContaining([
+        "Import conversation or notes",
+        "Generate one Agent Run Packet for one implementation task",
+        "Store the result in the execution journal",
+      ]),
+    );
+    expect(result.intake.mvpBoundary.join(" ")).not.toMatch(/The intended outcome is/i);
+    expect(result.intake.knownRisks.join(" ")).not.toMatch(/The target user is/i);
+    expect(result.intake.knownRisks.join(" ")).not.toMatch(/The problem is/i);
+    expect(result.intake.knownRisks.join(" ")).toMatch(/tests passed when they were not actually run/i);
+    expect(result.intake.hiddenOpportunities.join(" ")).toMatch(/governance harness/i);
+    expect(result.warnings).not.toContain("No target user, client, audience, or customer was confidently found.");
   });
 });

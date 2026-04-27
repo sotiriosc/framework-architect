@@ -57,6 +57,21 @@ const praxisGuidedInput: GuidedIntakeInput = {
   ],
 };
 
+const leakyGuidedInput: GuidedIntakeInput = {
+  ...praxisGuidedInput,
+  mvpBoundary: [
+    "The intended outcome is that I can move from rough idea to a build-ready blueprint",
+    "Import conversation or notes",
+    "Generate one Agent Run Packet for one implementation task",
+    "Store the result in the execution journal",
+  ],
+  knownRisks: [
+    "The target user is an independent builder working on Praxis features.",
+    "The problem is Praxis feature work can drift, break progression logic, and weaken phase gating.",
+    "Codex may say tests passed when they were not actually run.",
+  ],
+};
+
 describe("blueprint exports", () => {
   it("exports a markdown architecture brief with key sections", () => {
     const blueprint = createSeedBlueprint();
@@ -143,6 +158,21 @@ describe("blueprint exports", () => {
     expect(checklist).toContain("Export JSON blueprint");
     expect(checklist).toContain("Export Codex task");
     expect(checklist).toContain("Codex Task Export");
+  });
+
+  it("keeps context prose out of generated MVP checklist and failure modes", () => {
+    const blueprint = composeBlueprintFromGuidedIntake(leakyGuidedInput);
+    const checklist = exportMvpChecklist(blueprint);
+    const markdown = exportBlueprintMarkdown(blueprint);
+
+    expect(checklist).toContain("Import conversation or notes");
+    expect(checklist).toContain("Generate one Agent Run Packet for one implementation task");
+    expect(checklist).not.toContain("The intended outcome is");
+    expect(markdown).not.toContain("The target user is an independent builder");
+    expect(markdown).not.toContain("The problem is Praxis feature work");
+    expect(blueprint.failureModes.map((mode) => mode.description).join(" ")).toContain(
+      "Codex may say tests passed when they were not actually run.",
+    );
   });
 
   it("exports implementation plan and Codex task pack artifacts", () => {
