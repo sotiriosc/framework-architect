@@ -127,7 +127,7 @@ export const ImplementationPlanPanel = ({
   return (
     <SectionCard
       title="Implementation plan"
-      description="Turns the blueprint into ordered, bounded build tasks and Codex-ready prompts. The plan is advisory until you record a selected task or deferred item."
+      description="Turns the blueprint into ordered, bounded build tasks and Codex-ready prompts. Use the Agent Run Harness below when you want a stricter one-task execution packet."
     >
       <div className="quality-callout quality-callout--strong">
         <div>

@@ -31,7 +31,7 @@ export const ProjectDashboard = ({
   <div className="dashboard-stack">
     <SectionCard
       title="Projects"
-      description="V1 loop: Conversation or idea -> Template -> Blueprint -> Validation -> Quality -> Foresight -> Implementation Plan -> Export."
+      description="V1 loop: Conversation or idea -> Template -> Blueprint -> Validation -> Quality -> Foresight -> Implementation Plan -> Agent Run Harness -> Export."
     >
       <div className="toolbar toolbar--split">
         <p className="muted">

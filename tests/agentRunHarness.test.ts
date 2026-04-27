@@ -150,6 +150,38 @@ Acceptance criteria:
     expect(review.missingAcceptanceCriteria.length).toBeGreaterThan(0);
   });
 
+  it("does not treat not-run tests or not-covered criteria as passing evidence", () => {
+    const packet: AgentRunPacket = {
+      ...createPacket(),
+      suggestedTests: ["npm run test"],
+      acceptanceCriteria: ["Harness review rejects unsupported acceptance claims"],
+    };
+    const result = parseAgentRunResult(`Summary:
+- Could not finish the task.
+
+Changed files:
+- src/application/agent/reviewAgentRunResult.ts
+
+Tests run:
+- npm run test - not run
+
+Acceptance criteria:
+- Harness review rejects unsupported acceptance claims - not covered
+
+Failures:
+- Tests were not run
+
+Followups:
+- Complete acceptance work`);
+    const review = reviewAgentRunResult(packet, result);
+
+    expect(review.overall).toBe("needs-followup");
+    expect(review.testCoverage).toEqual([]);
+    expect(review.missingSuggestedTests).toContain("npm run test");
+    expect(review.acceptanceCoverage).toEqual([]);
+    expect(review.missingAcceptanceCriteria).toContain("Harness review rejects unsupported acceptance claims");
+  });
+
   it("flags unexpected touched files when packet has specific likely files", () => {
     const packet: AgentRunPacket = {
       ...createPacket(),

@@ -64,11 +64,39 @@ const hasEvidenceFor = (expected: string, evidence: string): boolean => {
 };
 
 const coveredItems = (expectedItems: string[], evidence: string): string[] =>
-  expectedItems.filter((item) => hasEvidenceFor(item, evidence));
+  expectedItems.filter((item) => hasPositiveEvidenceFor(item, evidence));
 
 const missingItems = (expectedItems: string[], covered: string[]): string[] => {
   const coveredSet = new Set(covered);
   return expectedItems.filter((item) => !coveredSet.has(item));
+};
+
+const evidenceLines = (value: string): string[] =>
+  value
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*[-*]\s+/, "").trim())
+    .filter(Boolean);
+
+const hasNegativeEvidenceLanguage = (line: string): boolean =>
+  /\b(not run|not covered|not addressed|missing|fail(?:ed|ing|ure)?|blocked|unable|could not|skipped|incomplete)\b/i.test(
+    line,
+  );
+
+const hasPositiveEvidenceLanguage = (line: string): boolean =>
+  /\b(covered|passed|pass|implemented|complete|completed|done|verified|satisfied|satisfies|ok)\b/i.test(line);
+
+const hasPositiveEvidenceFor = (expected: string, evidence: string): boolean => {
+  const relevantLines = evidenceLines(evidence).filter((line) => hasEvidenceFor(expected, line));
+
+  if (relevantLines.some((line) => hasPositiveEvidenceLanguage(line) && !hasNegativeEvidenceLanguage(line))) {
+    return true;
+  }
+
+  if (relevantLines.some(hasNegativeEvidenceLanguage)) {
+    return false;
+  }
+
+  return hasEvidenceFor(expected, evidence);
 };
 
 const isSpecificFileHint = (value: string): boolean =>
