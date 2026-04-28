@@ -113,7 +113,7 @@ const stripSpeakerAndBullet = (value: string): string =>
   normalizeWhitespace(
     value
       .replace(/^\s*(?:[-*•]|\d+[.)])\s+/, "")
-      .replace(/^\s*(?:user|assistant|me|client|pm|dev|coach|speaker\s+\d+|participant\s+\d+)[:\-]\s*/i, ""),
+      .replace(/^\s*(?:user|assistant|me|client|pm|dev|coach|speaker\s+\d+|participant\s+\d+)\s*(?::|\s+-)\s*/i, ""),
   );
 
 const isLikelyHeading = (line: string): boolean =>

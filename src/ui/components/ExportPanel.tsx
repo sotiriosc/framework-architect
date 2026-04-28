@@ -3,6 +3,7 @@ import { exportBlueprintLineage } from "@/application/export/exportBlueprintLine
 import { exportBlueprintMarkdown } from "@/application/export/exportBlueprintMarkdown";
 import { exportCodexPrompt } from "@/application/export/exportCodexPrompt";
 import { exportCodexTaskPack } from "@/application/export/exportCodexTaskPack";
+import { exportExpansionRoadmap } from "@/application/export/exportExpansionRoadmap";
 import { exportImplementationPlan } from "@/application/export/exportImplementationPlan";
 import { exportMvpChecklist } from "@/application/export/exportMvpChecklist";
 import type { AgentRunJournalEntry } from "@/application/agent/agentRunTypes";
@@ -139,6 +140,19 @@ export const ExportPanel = ({
           }
         >
           Export Lineage Report
+        </button>
+        <button
+          type="button"
+          className="button-secondary"
+          onClick={() =>
+            downloadTextFile(
+              filenameFor(blueprint, "expansion-roadmap", "md"),
+              exportExpansionRoadmap(blueprint),
+              "text/markdown",
+            )
+          }
+        >
+          Export Expansion Roadmap
         </button>
       </div>
     </SectionCard>

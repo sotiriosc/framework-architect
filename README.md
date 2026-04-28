@@ -17,9 +17,9 @@ The app accepts a rough idea, extracts the intended outcome, and stores a struct
 - expansion scope
 
 ## Current V1 Product Loop
-Conversation / Notes -> Distilled Intake -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Implementation Plan -> Agent Run Packet -> External Execution -> Result Review -> Execution Journal -> Source Lineage -> Export.
+Conversation / Notes -> Distilled Intake -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Expansion Roadmap -> Implementation Plan -> Agent Run Packet -> External Execution -> Result Review -> Execution Journal -> Source Lineage -> Export.
 
-The default path is guided and populated: users can paste a messy conversation or start from a raw idea, review editable intake fields, choose or infer a template, generate a governed blueprint, review structural validation, inspect quality and next-best fixes, apply deterministic safe fixes when useful, review strategic foresight suggestions, sequence the MVP into bounded implementation tasks, generate one-task agent run packets, review pasted external execution reports, then export implementation artifacts and Codex-ready task packs. The full editor remains available for manual architecture work, including the advanced empty-blueprint path.
+The default path is guided and populated: users can paste a messy conversation or start from a raw idea, review editable intake fields, choose or infer a template, generate a governed blueprint, review structural validation, inspect quality and next-best fixes, apply deterministic safe fixes when useful, review strategic foresight suggestions, stage future expansion ideas into governed roadmap paths, sequence the MVP into bounded implementation tasks, generate one-task agent run packets, review pasted external execution reports, then export implementation artifacts and Codex-ready task packs. The full editor remains available for manual architecture work, including the advanced empty-blueprint path.
 
 ## V1 Includes
 - Strong TypeScript domain types and Zod schemas
@@ -35,6 +35,7 @@ The default path is guided and populated: users can paste a messy conversation o
 - Export outputs for Markdown architecture briefs, Codex prompts, JSON, and MVP checklists
 - Blueprint quality review and deterministic safe quality fixes
 - Strategic foresight and opportunity radar for future work, risks, experiments, metrics, tests, and Codex task seeds
+- Expansion Roadmap / Future Path projection that turns vague expansion ideas into staged, governed paths without moving them into MVP scope
 - Implementation task planner and Codex task pack exports
 - Agent Run Harness and local execution journal for bounded external Codex runs and pasted result review
 - Source Lineage / Seed Provenance view and export for seed, template orientation, shaping inputs, produced artifacts, trust boundaries, and warnings
@@ -58,7 +59,7 @@ Out of scope for this branch:
 ## Architecture Layers
 - `schema`: Zod contracts for every entity and the top-level blueprint
 - `domain`: shared types, defaults, and entity metadata
-- `application`: intake, validation, lineage, export, review, planning, agent harness, and persistence workflows
+- `application`: intake, validation, expansion roadmap, lineage, export, review, planning, agent harness, and persistence workflows
 - `persistence`: repository interface and localStorage adapter
 - `ui`: minimal React components and workspace flow
 
@@ -170,7 +171,8 @@ Out of scope for this branch:
 - Implementation Plan export writes the ordered task groups, test plan, risk controls, commit plan, and acceptance checklist
 - Codex Task Pack export writes multiple small implementation prompts with scope, likely files, tests, acceptance criteria, do-not-break constraints, and expected result report format guidance
 - Lineage Report export writes seed, orientation, nourishment, fruit, trust boundaries, and warnings
-- Markdown export includes only a concise lineage summary, not the full report
+- Expansion Roadmap export writes staged future paths, prerequisites, risks, experiments, metrics, and not-yet boundaries
+- Markdown export includes concise lineage and expansion roadmap summaries, not the full reports
 
 ## Quality Review And Safe Fixes
 - Validation answers whether the blueprint is structurally correct and build-ready
@@ -186,6 +188,15 @@ Out of scope for this branch:
 - Selected foresight items can be added to expansion scope or recorded as decision records through `BlueprintService`
 - Those selected actions still validate, pass through stable save review, update memory, and record revision history
 - Template-specific patterns keep suggestions practical: Praxis features emphasize regression tests and do-not-break guidance, software apps emphasize onboarding/persistence/testing, business systems emphasize offer/customer/delivery/revenue validation, and other templates get matching next-step signals
+
+## Expansion Roadmap / Future Path Builder
+- `buildExpansionRoadmap(...)` derives staged future paths from expansion scope items and future signals without changing `ProjectBlueprint`
+- Roadmap readiness is derived from validation, MVP thinness, quality review, implementation readiness, and MVP/expansion separation
+- Vague future ideas are classified deterministically into categories such as AI agent, automation, collaboration, cloud sync, analytics, templates, integration, monetization, content, operations, or generic
+- Category patterns add prerequisites, stages, risks, suggested experiments, suggested metrics, and not-yet boundaries
+- AI-agent paths explicitly defer fully autonomous execution, automatic merging, unscoped repository-wide edits, and bypassing validation or review
+- Cloud-sync paths explicitly preserve local-first behavior and defer required accounts, silent cloud writes, and replacing local-first storage
+- Expansion Roadmap is a read-only planning projection: it does not move anything into MVP scope, mutate validation, create revisions, or treat future ideas as blueprint truth
 
 ## Implementation Planning And Codex Task Packs
 - Implementation planning answers how to build the current validated blueprint in small, ordered steps

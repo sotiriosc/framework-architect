@@ -211,15 +211,14 @@ const isExportRelated = (value: string): boolean =>
     "json",
     "markdown",
     "mvp checklist",
-    "output",
     "prompt",
   ]);
 
 const isCaptureRelated = (value: string): boolean =>
-  includesAny(value, ["capture", "clarify", "feature idea", "guided intake", "intake", "raw feature", "raw idea"]);
+  includesAny(value, ["capture", "clarify", "feature idea", "guided intake", "input", "intake", "raw feature", "raw idea", "start condition", "trigger"]);
 
 const isReadinessRelated = (value: string): boolean =>
-  includesAny(value, ["governance", "missing structure", "readiness", "review", "validate", "validation"]);
+  includesAny(value, ["checks", "governance", "missing structure", "quality", "readiness", "risk", "safety", "validate", "validation"]);
 
 const isStructureRelated = (value: string): boolean =>
   includesAny(value, ["blueprint", "compose", "connected framework", "generate", "structure"]);
@@ -347,6 +346,29 @@ const INVARIANT_STOP_WORDS = new Set([
   "with",
 ]);
 
+const RISK_STOP_WORDS = new Set([
+  ...INVARIANT_STOP_WORDS,
+  "accidentally",
+  "as",
+  "become",
+  "becomes",
+  "being",
+  "can",
+  "could",
+  "from",
+  "get",
+  "if",
+  "in",
+  "first",
+  "may",
+  "might",
+  "more",
+  "than",
+  "too",
+  "were",
+  "when",
+]);
+
 const titleWord = (word: string): string => {
   const normalized = word.toLowerCase();
   if (normalized === "ai") return "AI";
@@ -367,6 +389,18 @@ const significantInvariantWords = (statement: string): string[] =>
     .filter((word) => !INVARIANT_STOP_WORDS.has(word.toLowerCase()));
 
 const titleFromWords = (words: string[]): string => words.map(titleWord).join(" ");
+
+const riskNameFromText = (risk: string, index: number): string => {
+  const words = risk
+    .replace(/[^a-zA-Z0-9\s-]/g, " ")
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter(Boolean)
+    .filter((word) => !RISK_STOP_WORDS.has(word.toLowerCase()))
+    .slice(0, 5);
+
+  return words.length > 0 ? titleFromWords(words) : `Guided Risk ${index + 1}`;
+};
 
 const lowerFirst = (value: string): string => {
   const trimmed = value.trim();
@@ -464,6 +498,14 @@ const domainKeywordsFor = (name: string): string[] => {
     return ["validation", "quality", "risk", "safety", "governance", "checks"];
   }
 
+  if (includesAny(name, ["pricing", "revenue"])) {
+    return ["revenue", "pricing"];
+  }
+
+  if (includesAny(name, ["operations"])) {
+    return ["operations"];
+  }
+
   if (includesAny(name, ["data", "persistence"])) {
     return ["data", "persistence"];
   }
@@ -529,7 +571,7 @@ const createTemplateFunctions = (input: {
     const fn = createProjectFunction();
     const domain = selectDomainFor(name, input.domains, index);
     fn.name = name;
-    fn.description = `${name} for the ${input.template.label.toLowerCase()} generated from this guided intake.`;
+    fn.description = `${name} for ${input.targetUser}, shaped by the ${input.template.label.toLowerCase()} template.`;
     fn.domainIds = [domain.id];
     fn.outcomeIds = [input.primaryOutcomeId, input.governanceOutcomeId];
     fn.actorIds = isReadinessRelated(name) || isExportRelated(name)
@@ -542,6 +584,78 @@ const createTemplateFunctions = (input: {
 };
 
 const functionKeywordsFor = (name: string): string[] => {
+  if (includesAny(name, ["customer"])) {
+    return ["customer"];
+  }
+
+  if (includesAny(name, ["delivery"])) {
+    return ["delivery"];
+  }
+
+  if (includesAny(name, ["operations"])) {
+    return ["operations"];
+  }
+
+  if (includesAny(name, ["revenue", "pricing"])) {
+    return ["revenue", "pricing"];
+  }
+
+  if (includesAny(name, ["risk", "bottleneck"])) {
+    return ["risk", "bottleneck"];
+  }
+
+  if (includesAny(name, ["audience"])) {
+    return ["audience"];
+  }
+
+  if (includesAny(name, ["pillar"])) {
+    return ["pillar", "content"];
+  }
+
+  if (includesAny(name, ["distribution", "posting", "asset"])) {
+    return ["distribution", "posting", "asset"];
+  }
+
+  if (includesAny(name, ["conversion"])) {
+    return ["conversion", "preserve"];
+  }
+
+  if (includesAny(name, ["proof", "trust"])) {
+    return ["proof", "trust", "truth"];
+  }
+
+  if (includesAny(name, ["argument"])) {
+    return ["argument", "structure"];
+  }
+
+  if (includesAny(name, ["evidence"])) {
+    return ["evidence", "supporting"];
+  }
+
+  if (includesAny(name, ["section"])) {
+    return ["section"];
+  }
+
+  if (includesAny(name, ["input"])) {
+    return ["input", "start", "condition"];
+  }
+
+  if (includesAny(name, ["step"])) {
+    return ["step"];
+  }
+
+  if (includesAny(name, ["role"])) {
+    return ["role"];
+  }
+
+  if (includesAny(name, ["quality", "check"])) {
+    return ["check"];
+  }
+
+  if (includesAny(name, ["output", "done"])) {
+    return ["output", "completed"];
+  }
+
   if (isExportRelated(name) || includesAny(name, ["publication", "handoff"])) {
     return ["export", "prompt", "handoff", "output", "publication", "draft"];
   }
@@ -583,10 +697,10 @@ const createTemplateComponents = (input: {
   return names.map((name, index) => {
     const component = createComponent();
     const fn = selectFunctionFor(name, input.functions, index);
-    const domain = input.domains.find((item) => fn.domainIds.includes(item.id)) ?? selectDomainFor(name, input.domains, index);
+    const domain = selectDomainFor(name, input.domains, index);
     component.name = name;
     component.description = `${name} supports the ${input.template.label.toLowerCase()} workflow.`;
-    component.purpose = `Make ${name.toLowerCase()} explicit and inspectable in the generated blueprint.`;
+    component.purpose = `Support ${fn.name.toLowerCase()} with inspectable ${domain.name.toLowerCase()} decisions.`;
     component.domainIds = [domain.id];
     component.functionIds = [fn.id];
     component.inputs = ["Guided blueprint state"];
@@ -730,7 +844,7 @@ export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): Proj
 
   const primaryOutcome = createOutcome(outcomeLabel(guided.projectName, guided.intendedOutcome));
   primaryOutcome.description = `The ${guided.frameworkType} solves: ${guided.problem}`;
-  primaryOutcome.successMetric = `The target user can ${intendedOutcomeAction} through the MVP workflow.`;
+  primaryOutcome.successMetric = `${guided.targetUser} can ${intendedOutcomeAction} through the MVP workflow.`;
   primaryOutcome.actorIds = [primaryActor.id];
 
   const governanceOutcome = createOutcome("Governed scope and assumptions stay explicit");
@@ -903,7 +1017,7 @@ export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): Proj
 
     return createMappedScopeItem({
       name: `MVP: ${item}`,
-      description: `Belongs in the first buildable version of ${guided.projectName}.`,
+      description: "First-build scope item from guided intake.",
       outcomeIds: mapping.outcomeIds,
       functionIds: mapping.functionIds,
       componentIds: mapping.componentIds,
@@ -922,7 +1036,7 @@ export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): Proj
 
     return createMappedScopeItem({
       name: createDistinctExpansionName(item, mvpNames),
-      description: `A future enhancement after the MVP is governed and validated.`,
+      description: "Future option after the MVP is governed and validated.",
       outcomeIds: mapping.outcomeIds,
       functionIds: mapping.functionIds,
       componentIds: mapping.componentIds,
@@ -932,7 +1046,7 @@ export const composeBlueprintFromGuidedIntake = (input: GuidedIntakeInput): Proj
 
   const failureModes = guided.knownRisks.map((risk, index) => {
     const failureMode = createFailureMode();
-    failureMode.name = index === 0 ? "Known guided risk" : `Known guided risk ${index + 1}`;
+    failureMode.name = riskNameFromText(risk, index);
     failureMode.description = risk;
     failureMode.severity = index === 0 ? "high" : "medium";
     failureMode.mitigation = "Review this risk during readiness checks and adjust scope or guardrails if needed.";

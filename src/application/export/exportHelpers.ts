@@ -55,6 +55,34 @@ export const createNameLookup = (blueprint: ProjectBlueprint): Map<string, strin
 export const namesFor = (lookup: Map<string, string>, ids: string[]): string =>
   ids.length > 0 ? ids.map((id) => lookup.get(id) ?? id).join(", ") : "None";
 
+const shortReferenceName = (id: string, lookup: Map<string, string>): string => {
+  const name = lookup.get(id) ?? id;
+
+  if (id.startsWith("outcome")) {
+    if (name === "Governed scope and assumptions stay explicit") {
+      return "Governance outcome";
+    }
+
+    if (name.includes(":")) {
+      return "Primary outcome";
+    }
+  }
+
+  return name.length > 72 ? `${name.slice(0, 69).trim()}...` : name;
+};
+
+const compactNamesFor = (lookup: Map<string, string>, ids: string[], maxItems = 6): string => {
+  const names = [...new Set(ids.map((id) => shortReferenceName(id, lookup)).filter(Boolean))];
+  const visible = names.slice(0, maxItems);
+  const remainingCount = names.length - visible.length;
+
+  if (visible.length === 0) {
+    return "None";
+  }
+
+  return remainingCount > 0 ? `${visible.join(", ")} +${remainingCount} more` : visible.join(", ");
+};
+
 export const validationCounts = (validation: ValidationState): { pass: number; warning: number; fail: number } =>
   validation.checks.reduce(
     (counts, check) => {
@@ -124,10 +152,10 @@ export const renderPhase = (phase: Phase, lookup: Map<string, string>): string =
   }.`;
 
 export const renderScopeItem = (item: ScopeItem, lookup: Map<string, string>): string =>
-  `${item.name} - ${textOrFallback(item.description || item.rationale)} References: ${namesFor(lookup, [
-    ...item.outcomeIds,
+  `${item.name} - ${textOrFallback(item.description || item.rationale)} References: ${compactNamesFor(lookup, [
     ...item.functionIds,
     ...item.componentIds,
+    ...item.outcomeIds,
   ])}`;
 
 export const renderFailureMode = (failureMode: FailureMode, lookup: Map<string, string>): string =>

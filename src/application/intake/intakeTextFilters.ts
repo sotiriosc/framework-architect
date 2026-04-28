@@ -122,7 +122,7 @@ export const isActionableMvpItem = (value: string): boolean => {
     return false;
   }
 
-  return /^(import|distill|create|validate|review|generate|export|store|build|implement|add|confirm|paste|capture|clarify|define|map|prepare|inspect|save|identify|assess|design|track|assign|model|structure|exportable|must include)\b/i.test(
+  return /^(import|distill|create|validate|review|generate|export|store|build|implement|add|confirm|paste|capture|clarify|define|map|prepare|inspect|save|identify|assess|design|track|assign|model|structure|adjust|draft|collect|record|exportable|must include)\b/i.test(
     text,
   );
 };
@@ -148,7 +148,7 @@ export const isExpansionItem = (value: string): boolean => {
 export const isOpportunityItem = (value: string): boolean => {
   const text = normalize(value);
 
-  return Boolean(text) && !isContextProse(text) && !isRiskItem(text);
+  return Boolean(text) && !isContextProse(text);
 };
 
 export const filterContextProse = (items: string[]): string[] =>

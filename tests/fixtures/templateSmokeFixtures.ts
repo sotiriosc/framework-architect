@@ -7,6 +7,7 @@ export type TemplateSmokeFixture = {
   expectedDomainTerms: string[];
   expectedFunctionTerms: string[];
   expectedComponentTerms: string[];
+  expectedPlanGroupTerms: string[];
   expectedCodexEmphasis: string;
   expectedMvpTerms: string[];
   expectedExpansionTerms: string[];
@@ -22,6 +23,7 @@ export const templateSmokeFixtures: TemplateSmokeFixture[] = [
     expectedDomainTerms: ["User Experience", "Data / Persistence", "Validation / Quality"],
     expectedFunctionTerms: ["Capture user goal", "Model core workflow", "Prepare build prompt"],
     expectedComponentTerms: ["Goal Intake", "Workflow Modeler", "Validation Panel"],
+    expectedPlanGroupTerms: ["core app workflow", "UI states", "persistence", "export"],
     expectedCodexEmphasis: "app workflow, UI components, data and persistence assumptions",
     expectedMvpTerms: ["Capture messy notes", "Build project planning workflow"],
     expectedExpansionTerms: ["Team workspaces", "Calendar export"],
@@ -80,6 +82,7 @@ Hidden opportunities:
     expectedDomainTerms: ["Offer", "Customer", "Revenue"],
     expectedFunctionTerms: ["Define offer", "Identify customer", "Clarify pricing and revenue"],
     expectedComponentTerms: ["Offer Canvas", "Customer Profile", "Revenue Model"],
+    expectedPlanGroupTerms: ["offer and customer", "delivery and revenue", "risk and validation"],
     expectedCodexEmphasis: "offer, customer, delivery, operations, revenue assumptions",
     expectedMvpTerms: ["Define the onboarding offer", "Map delivery process"],
     expectedExpansionTerms: ["Referral partnership playbook", "Automated lead scoring"],
@@ -137,6 +140,7 @@ Hidden opportunities:
     expectedDomainTerms: ["Client Intake", "Assessment", "Safety / Boundaries"],
     expectedFunctionTerms: ["Capture client goal", "Assess constraints", "Adjust plan"],
     expectedComponentTerms: ["Client Intake Form", "Assessment Lens", "Safety Boundary Review"],
+    expectedPlanGroupTerms: ["intake and assessment", "feedback loop", "safety boundaries"],
     expectedCodexEmphasis: "intake, assessment, intervention design, feedback adaptation",
     expectedMvpTerms: ["Capture client goal", "Assess movement constraints"],
     expectedExpansionTerms: ["Client progress dashboard", "Coach-client messaging"],
@@ -194,6 +198,7 @@ Hidden opportunities:
     expectedDomainTerms: ["Core Message", "Audience", "Distribution"],
     expectedFunctionTerms: ["Define message", "Identify audience", "Build content pillars"],
     expectedComponentTerms: ["Message Canvas", "Audience Profile", "Content Pillar Map"],
+    expectedPlanGroupTerms: ["message and audience", "distribution", "conversion"],
     expectedCodexEmphasis: "audience, message, content pillars, trust proof",
     expectedMvpTerms: ["Define core message", "Identify audience"],
     expectedExpansionTerms: ["Podcast guest strategy", "Paid newsletter funnel"],
@@ -251,6 +256,7 @@ Hidden opportunities:
     expectedDomainTerms: ["Thesis", "Audience", "Evidence"],
     expectedFunctionTerms: ["Define thesis", "Structure argument", "Prepare draft and export"],
     expectedComponentTerms: ["Thesis Canvas", "Argument Map", "Evidence Library"],
+    expectedPlanGroupTerms: ["thesis", "argument", "evidence", "sections"],
     expectedCodexEmphasis: "thesis, audience, argument structure, evidence",
     expectedMvpTerms: ["Define thesis", "Identify target reader"],
     expectedExpansionTerms: ["Peer review panel", "Conference talk adaptation"],
@@ -308,6 +314,7 @@ Hidden opportunities:
     expectedDomainTerms: ["Trigger", "Inputs", "Quality Checks"],
     expectedFunctionTerms: ["Define start condition", "Map steps", "Define completed output"],
     expectedComponentTerms: ["Trigger Definition", "Step Map", "Quality Checkpoints"],
+    expectedPlanGroupTerms: ["trigger", "inputs", "ordered steps", "quality checks", "output"],
     expectedCodexEmphasis: "trigger, inputs, ordered steps, role ownership",
     expectedMvpTerms: ["Define review trigger", "Collect required inputs"],
     expectedExpansionTerms: ["Automated pull request labels", "Team training checklist"],
@@ -366,6 +373,7 @@ Hidden opportunities:
     expectedDomainTerms: ["Intent and Context", "Core Framework", "Governance and Readiness"],
     expectedFunctionTerms: ["Clarify intake assumptions", "Compose governed framework blueprint", "Review readiness and governance"],
     expectedComponentTerms: ["Guided Intake Workspace", "Blueprint Composer", "Readiness Review Surface"],
+    expectedPlanGroupTerms: ["decision-to-action", "governance", "action brief"],
     expectedCodexEmphasis: "explicit assumptions, connected structure, governance",
     expectedMvpTerms: ["Capture raw desire", "Clarify decision criteria"],
     expectedExpansionTerms: ["Personal operating cadence", "Shared review ritual"],

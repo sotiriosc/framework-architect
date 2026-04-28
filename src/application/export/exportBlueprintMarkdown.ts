@@ -1,5 +1,6 @@
 import type { ProjectBlueprint } from "@/domain/models";
 import type { AgentRunJournalEntry } from "@/application/agent/agentRunTypes";
+import { buildExpansionRoadmap } from "@/application/expansion/buildExpansionRoadmap";
 import { buildImplementationPlan } from "@/application/planning/buildImplementationPlan";
 import { buildBlueprintLineage } from "@/application/lineage/buildBlueprintLineage";
 import { buildBlueprintForesight } from "@/application/review/buildBlueprintForesight";
@@ -49,6 +50,7 @@ export const exportBlueprintMarkdown = (
       ? buildBlueprintImprovementPlan(blueprint)
       : null;
   const foresight = buildBlueprintForesight(blueprint);
+  const expansionRoadmap = buildExpansionRoadmap(blueprint);
   const implementationPlan = buildImplementationPlan(blueprint);
 
   return `${joinBlocks([
@@ -135,6 +137,17 @@ export const exportBlueprintMarkdown = (
         : "",
       foresight.notYet.length > 0
         ? `Not yet:\n${bulletList(foresight.notYet.slice(0, 3), (item) => `${item.title} - ${item.whyNowOrLater}`)}`
+        : "",
+    ]),
+    joinBlocks([
+      "## Expansion Roadmap Summary",
+      `Readiness: ${expansionRoadmap.expansionReadiness}`,
+      expansionRoadmap.summary,
+      expansionRoadmap.recommendedNextExpansion
+        ? `Recommended next expansion: ${expansionRoadmap.recommendedNextExpansion.title}`
+        : "Recommended next expansion: None.",
+      expansionRoadmap.notYet.length > 0
+        ? `Not yet:\n${bulletList(expansionRoadmap.notYet.slice(0, 3), (item) => item)}`
         : "",
     ]),
     joinBlocks([

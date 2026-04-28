@@ -105,6 +105,12 @@ textarea {
   margin-top: 1rem;
 }
 
+.inspector-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .section-card {
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid #d7d6ce;
@@ -293,6 +299,51 @@ textarea {
 .validation-summary strong {
   display: block;
   margin-top: 0.25rem;
+}
+
+.command-center__summary,
+.command-center__status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.command-center__summary > div {
+  border: 1px solid #d7d6ce;
+  background: #fffdf9;
+  padding: 0.75rem;
+}
+
+.command-center__summary strong,
+.command-center__next strong {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.command-center__summary,
+.command-center__next,
+.command-center__status-grid {
+  overflow-wrap: anywhere;
+}
+
+.command-center__next {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  border: 1px solid #8aa0b4;
+  background: #f4f8fb;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.command-center__next p,
+.command-center__status-grid p {
+  margin: 0.35rem 0 0;
+}
+
+.command-center__actions {
+  margin-bottom: 1rem;
 }
 
 .dashboard-stack,
@@ -639,6 +690,9 @@ textarea {
   .form-grid,
   .validation-summary,
   .project-card__stats,
+  .command-center__summary,
+  .command-center__next,
+  .command-center__status-grid,
   .readiness-callout,
   .readiness-grid,
   .quality-improvement-plan {

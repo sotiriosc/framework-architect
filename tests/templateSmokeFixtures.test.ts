@@ -63,6 +63,18 @@ const expectTextIncludesAll = (actual: string, expectedTerms: string[]) => {
   });
 };
 
+const expectTextIncludesAllLoose = (actual: string, expectedTerms: string[]) => {
+  const normalizedActual = normalize(actual);
+  expectedTerms.forEach((term) => {
+    expect(normalizedActual).toContain(normalize(term));
+  });
+};
+
+const buildFixtureBlueprint = (fixture: (typeof templateSmokeFixtures)[number]) => {
+  const result = distillConversationToIntake(createDraft(fixture.text, fixture.title));
+  return composeBlueprintFromGuidedIntake(toGuidedInput(result.intake));
+};
+
 describe("multi-template smoke fixtures", () => {
   it.each(templateSmokeFixtures)(
     "distills $expectedTemplateId fixture into complete guided intake",
@@ -90,8 +102,7 @@ describe("multi-template smoke fixtures", () => {
   it.each(templateSmokeFixtures)(
     "composes a valid $expectedTemplateId blueprint with expected structure and lineage",
     (fixture) => {
-      const result = distillConversationToIntake(createDraft(fixture.text, fixture.title));
-      const blueprint = composeBlueprintFromGuidedIntake(toGuidedInput(result.intake));
+      const blueprint = buildFixtureBlueprint(fixture);
       const quality = buildBlueprintQualityReview(blueprint);
       const lineage = buildBlueprintLineage({ blueprint });
 
@@ -121,8 +132,7 @@ describe("multi-template smoke fixtures", () => {
   it.each(templateSmokeFixtures)(
     "exports complete artifacts for $expectedTemplateId fixture",
     (fixture) => {
-      const result = distillConversationToIntake(createDraft(fixture.text, fixture.title));
-      const blueprint = composeBlueprintFromGuidedIntake(toGuidedInput(result.intake));
+      const blueprint = buildFixtureBlueprint(fixture);
       const template = getFrameworkTemplate(fixture.expectedTemplateId);
       const markdown = exportBlueprintMarkdown(blueprint);
       const codexPrompt = exportCodexPrompt(blueprint);
@@ -144,6 +154,79 @@ describe("multi-template smoke fixtures", () => {
       expect(lineageReport).toContain("## Nourishment");
       expect(lineageReport).toContain("## Fruit");
       expect(lineageReport).toContain("## Trust Boundaries");
+    },
+  );
+
+  it.each(templateSmokeFixtures)(
+    "keeps $expectedTemplateId exports free of obvious awkward generator phrases",
+    (fixture) => {
+      const blueprint = buildFixtureBlueprint(fixture);
+      const combinedOutput = [
+        exportBlueprintMarkdown(blueprint),
+        exportCodexPrompt(blueprint),
+        exportCodexTaskPack(blueprint),
+        exportMvpChecklist(blueprint),
+        exportBlueprintLineage({ blueprint }),
+      ].join("\n");
+
+      [
+        "Belongs in the first buildable version",
+        "generated from this guided intake",
+        "Known guided risk",
+        "reach that I can",
+      ].forEach((phrase) => {
+        expect(combinedOutput).not.toContain(phrase);
+      });
+    },
+  );
+
+  it.each(templateSmokeFixtures)(
+    "keeps $expectedTemplateId MVP checklist concise and action-oriented",
+    (fixture) => {
+      const blueprint = buildFixtureBlueprint(fixture);
+      const checklistLines = exportMvpChecklist(blueprint)
+        .split("\n")
+        .filter((line) => line.startsWith("- [ ] MVP:"));
+
+      expect(checklistLines.length).toBeGreaterThanOrEqual(4);
+      checklistLines.forEach((line) => {
+        expect(line.length).toBeLessThanOrEqual(240);
+        expect(line).toMatch(/^- \[ \] MVP: (Capture|Distill|Build|Save|Validate|Export|Define|Identify|Map|Clarify|Create|Review|Assess|Track|Adjust|Draft|Prepare|Collect|Assign|Add|Record|Structure)\b/);
+        expect(line).not.toContain(`${fixture.title}:`);
+      });
+    },
+  );
+
+  it.each(templateSmokeFixtures)(
+    "uses expected $expectedTemplateId implementation plan groups",
+    (fixture) => {
+      const blueprint = buildFixtureBlueprint(fixture);
+      const implementationPlan = buildImplementationPlan(blueprint);
+      const groupTitles = implementationPlan.taskGroups.map((group) => group.title).join("\n");
+
+      expectTextIncludesAllLoose(groupTitles, fixture.expectedPlanGroupTerms);
+    },
+  );
+
+  it.each(templateSmokeFixtures)(
+    "keeps $expectedTemplateId Codex prompt template-specific without Praxis-only constraints",
+    (fixture) => {
+      const blueprint = buildFixtureBlueprint(fixture);
+      const codexPrompt = exportCodexPrompt(blueprint);
+
+      expect(codexPrompt).toContain(fixture.expectedCodexEmphasis);
+      expect(codexPrompt).not.toMatch(/Praxis program generation|phase gating|progression logic/i);
+    },
+  );
+
+  it.each(templateSmokeFixtures)(
+    "reports $expectedTemplateId lineage orientation clearly",
+    (fixture) => {
+      const blueprint = buildFixtureBlueprint(fixture);
+      const template = getFrameworkTemplate(fixture.expectedTemplateId);
+      const lineageReport = exportBlueprintLineage({ blueprint });
+
+      expect(lineageReport).toContain(`Template: ${template.label} (${fixture.expectedTemplateId})`);
     },
   );
 });

@@ -4,9 +4,9 @@
 Framework Architect is intentionally local-first and architecture-first. The app captures a project idea as a governed blueprint and keeps governance concepts explicit instead of burying them in helper code.
 
 ## Current V1 Product Loop
-Conversation / Notes -> Distilled Intake -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Implementation Plan -> Agent Run Packet -> External Execution -> Result Review -> Execution Journal -> Source Lineage -> Export.
+Conversation / Notes -> Distilled Intake -> Template -> Blueprint -> Validation -> Quality Review -> Safe Fixes -> Foresight -> Expansion Roadmap -> Implementation Plan -> Agent Run Packet -> External Execution -> Result Review -> Execution Journal -> Source Lineage -> Export.
 
-The primary UI path follows that order: dashboard import or guided intake creates a reviewable intake draft, blueprint creation produces a populated blueprint, the workspace shows structural validation first, quality review and safe fixes second, foresight third, implementation planning fourth, the agent harness after planning, exports after that, revision history after the current working state, and lineage after revision history. Persistence status, quarantine recovery, memory snapshots, and raw blueprint JSON remain available as advanced diagnostics rather than the default read path.
+The primary UI path follows that order: dashboard import or guided intake creates a reviewable intake draft, blueprint creation produces a populated blueprint, the workspace shows structural validation first, quality review and safe fixes second, foresight third, expansion roadmap fourth, implementation planning after roadmap, the agent harness after planning, exports after that, revision history after the current working state, and lineage after revision history. Persistence status, quarantine recovery, memory snapshots, and raw blueprint JSON remain available as advanced diagnostics rather than the default read path.
 
 ## V1 Scope / Out Of Scope
 In scope:
@@ -138,8 +138,9 @@ Export generation is application-layer formatting on top of the current `Project
 - `exportImplementationPlan(...)` serializes the ordered implementation plan, task groups, risks, tests, commit plan, and acceptance checklist
 - `exportCodexTaskPack(...)` serializes multiple small task prompts designed for bounded Codex work and includes expected result report format guidance for harness review
 - `exportBlueprintLineage(...)` serializes seed provenance, orientation, nourishment, fruit, trust boundaries, and warnings
+- `exportExpansionRoadmap(...)` serializes staged future paths, prerequisites, risks, experiments, metrics, and not-yet boundaries
 
-Markdown and Codex exports can include concise quality, foresight, implementation plan, and lineage summaries, but they still only serialize the current local state. The Markdown architecture brief includes a short lineage summary rather than the full report. The MVP checklist remains scoped to MVP work and does not include later, not-yet, or deferred implementation items.
+Markdown and Codex exports can include concise quality, foresight, expansion roadmap, implementation plan, and lineage summaries, but they still only serialize the current local state. The Markdown architecture brief includes short lineage and expansion roadmap summaries rather than the full reports. The MVP checklist remains scoped to MVP work and does not include later, not-yet, or deferred implementation items.
 
 The UI download panel only turns those local strings into files with project-slug filenames. Export behavior remains separate from validation, stable save review, memory, revision history, foresight actions, and quarantine recovery.
 
@@ -166,6 +167,17 @@ Foresight is deterministic application logic above validation and quality review
 - `BlueprintService.addForesightItemToExpansion(...)` appends one selected item to expansion scope through the stable save path
 - `BlueprintService.addForesightItemAsDecision(...)` records one selected item as a decision record through the stable save path
 - Both service actions parse, validate, review, persist, snapshot memory, and record revision history
+
+## Expansion Roadmap / Future Path Builder
+Expansion Roadmap is deterministic application logic above expansion scope, validation, quality review, foresight, and implementation readiness. It explains how future ideas could mature without changing the blueprint by default.
+
+- `src/application/expansion/buildExpansionRoadmap.ts` derives roadmap readiness, paths, prerequisites, risk warnings, not-yet boundaries, template signals, and warnings from the current blueprint
+- Expansion readiness is `not-ready` when critical validation fails, `mvp-first` when MVP structure or quality is weak, `ready-to-plan` when validation and quality are strong, and `ready-to-sequence` when implementation planning is Codex-ready and MVP/expansion are distinct
+- Expansion items are classified with local keyword rules into AI agent, automation, collaboration, cloud sync, analytics, templates, integration, monetization, content, operations, or generic paths
+- Category patterns turn vague ideas into staged paths with acceptance criteria, dependencies, risk controls, prerequisites, experiments, metrics, and not-yet boundaries
+- AI-agent paths include the existing bounded Agent Run Harness first, then defer local verification bridges, confirmed writes, and governed semi-autonomous loops behind explicit gates
+- Cloud-sync paths preserve local-first behavior and defer required accounts, silent cloud writes, and replacement of local storage
+- The Expansion Roadmap panel and export are read-only projections; they do not mutate MVP scope, expansion scope, validation, memory, revision history, or `ProjectBlueprint` truth
 
 ## Implementation Planner And Codex Task Pack
 Implementation planning is deterministic application logic above foresight. It turns the current blueprint into a staged build sequence without mutating the blueprint by default.

@@ -6,11 +6,13 @@ import { CollectionEditor } from "@/ui/components/CollectionEditor";
 import { ConversationImportPanel } from "@/ui/components/ConversationImportPanel";
 import { IntentOutcomeEditor } from "@/ui/components/IntentOutcomeEditor";
 import { AgentRunHarnessPanel } from "@/ui/components/AgentRunHarnessPanel";
+import { BlueprintCommandCenter } from "@/ui/components/BlueprintCommandCenter";
 import { BlueprintLineagePanel } from "@/ui/components/BlueprintLineagePanel";
 import { ImplementationPlanPanel } from "@/ui/components/ImplementationPlanPanel";
 import { MemoryViewer } from "@/ui/components/MemoryViewer";
 import { BlueprintViewer } from "@/ui/components/BlueprintViewer";
 import { ExportPanel } from "@/ui/components/ExportPanel";
+import { ExpansionRoadmapPanel } from "@/ui/components/ExpansionRoadmapPanel";
 import { GuidedBlueprintWizard } from "@/ui/components/GuidedBlueprintWizard";
 import { ProjectForm } from "@/ui/components/ProjectForm";
 import { ProjectDashboard } from "@/ui/components/ProjectDashboard";
@@ -65,6 +67,18 @@ const App = () => {
   const [saveReason, setSaveReason] = useState("Manual blueprint update.");
   const [checkpointNote, setCheckpointNote] = useState("");
   const relationOptions = workspace.draftBlueprint ? buildRelationOptionGroups(workspace.draftBlueprint) : undefined;
+
+  const viewImplementationPlan = () => {
+    const reviewSection = document.getElementById("detailed-review-and-planning");
+    if (reviewSection instanceof HTMLDetailsElement) {
+      reviewSection.open = true;
+    }
+
+    document.getElementById("implementation-plan-panel")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
 
   const openProjectWorkspace = (projectId: string) => {
     workspace.selectProject(projectId);
@@ -644,62 +658,86 @@ const App = () => {
         <div className="workspace-grid__inspector">
           {workspace.draftBlueprint ? (
             <>
-              <ValidationPanel
-                validation={workspace.draftBlueprint.validation}
-                projectStatus={workspace.draftBlueprint.project.status}
-                relationOptions={relationOptions}
-              />
-              <BlueprintQualityPanel
+              <BlueprintCommandCenter
                 blueprint={workspace.draftBlueprint}
-                relationOptions={relationOptions}
+                revisions={workspace.projectRevisions}
+                agentRunJournal={workspace.agentRunJournal}
                 onApplySafeFixes={workspace.applySafeQualityFixes}
-                onApplyFix={workspace.applyQualityFix}
+                onCreateAgentRunPacket={workspace.createAgentRunPacket}
+                onViewImplementationPlan={viewImplementationPlan}
               />
-              <BlueprintForesightPanel
-                blueprint={workspace.draftBlueprint}
-                relationOptions={relationOptions}
-                onAddToExpansion={workspace.addForesightItemToExpansion}
-                onAddAsDecision={workspace.addForesightItemAsDecision}
-              />
-              <ImplementationPlanPanel
-                blueprint={workspace.draftBlueprint}
-                relationOptions={relationOptions}
-                onAddTaskAsDecision={workspace.addImplementationTaskAsDecision}
-                onAddDeferredToExpansion={workspace.addImplementationDeferredItemToExpansion}
-              />
-              <AgentRunHarnessPanel
-                blueprint={workspace.draftBlueprint}
-                journalEntries={workspace.agentRunJournal}
-                onCreatePacket={workspace.createAgentRunPacket}
-                onReviewResult={workspace.reviewAgentRunResult}
-              />
-              <ExportPanel
-                blueprint={workspace.draftBlueprint}
-                revisions={workspace.projectRevisions}
-                agentRunJournal={workspace.agentRunJournal}
-              />
-              <RevisionHistoryPanel
-                revisions={workspace.projectRevisions}
-                selectedRevision={
-                  workspace.selectedRevisionId
-                    ? workspace.projectRevisions.find((revision) => revision.id === workspace.selectedRevisionId) ??
-                      null
-                    : null
-                }
-                compareMode={workspace.revisionCompareMode}
-                selectedCompareRevisionId={workspace.selectedCompareRevisionId}
-                comparison={workspace.revisionComparison}
-                showSnapshotJson={workspace.showRevisionSnapshotJson}
-                onSelectRevision={workspace.selectRevision}
-                onCompareModeChange={workspace.setRevisionCompareMode}
-                onCompareRevisionChange={workspace.selectCompareRevision}
-                onToggleSnapshotJson={workspace.toggleRevisionSnapshotJson}
-              />
-              <BlueprintLineagePanel
-                blueprint={workspace.draftBlueprint}
-                revisions={workspace.projectRevisions}
-                agentRunJournal={workspace.agentRunJournal}
-              />
+              <details id="detailed-review-and-planning" className="advanced-inspector" open>
+                <summary>Detailed review and planning</summary>
+                <div className="inspector-stack">
+                  <ValidationPanel
+                    validation={workspace.draftBlueprint.validation}
+                    projectStatus={workspace.draftBlueprint.project.status}
+                    relationOptions={relationOptions}
+                  />
+                  <BlueprintQualityPanel
+                    blueprint={workspace.draftBlueprint}
+                    relationOptions={relationOptions}
+                    onApplySafeFixes={workspace.applySafeQualityFixes}
+                    onApplyFix={workspace.applyQualityFix}
+                  />
+                  <BlueprintForesightPanel
+                    blueprint={workspace.draftBlueprint}
+                    relationOptions={relationOptions}
+                    onAddToExpansion={workspace.addForesightItemToExpansion}
+                    onAddAsDecision={workspace.addForesightItemAsDecision}
+                  />
+                  <ExpansionRoadmapPanel
+                    blueprint={workspace.draftBlueprint}
+                    relationOptions={relationOptions}
+                  />
+                  <div id="implementation-plan-panel">
+                    <ImplementationPlanPanel
+                      blueprint={workspace.draftBlueprint}
+                      relationOptions={relationOptions}
+                      onAddTaskAsDecision={workspace.addImplementationTaskAsDecision}
+                      onAddDeferredToExpansion={workspace.addImplementationDeferredItemToExpansion}
+                    />
+                  </div>
+                  <AgentRunHarnessPanel
+                    blueprint={workspace.draftBlueprint}
+                    journalEntries={workspace.agentRunJournal}
+                    onCreatePacket={workspace.createAgentRunPacket}
+                    onReviewResult={workspace.reviewAgentRunResult}
+                  />
+                </div>
+              </details>
+              <details className="advanced-inspector">
+                <summary>Outputs, provenance, and history</summary>
+                <div className="inspector-stack">
+                  <ExportPanel
+                    blueprint={workspace.draftBlueprint}
+                    revisions={workspace.projectRevisions}
+                    agentRunJournal={workspace.agentRunJournal}
+                  />
+                  <RevisionHistoryPanel
+                    revisions={workspace.projectRevisions}
+                    selectedRevision={
+                      workspace.selectedRevisionId
+                        ? workspace.projectRevisions.find((revision) => revision.id === workspace.selectedRevisionId) ??
+                          null
+                        : null
+                    }
+                    compareMode={workspace.revisionCompareMode}
+                    selectedCompareRevisionId={workspace.selectedCompareRevisionId}
+                    comparison={workspace.revisionComparison}
+                    showSnapshotJson={workspace.showRevisionSnapshotJson}
+                    onSelectRevision={workspace.selectRevision}
+                    onCompareModeChange={workspace.setRevisionCompareMode}
+                    onCompareRevisionChange={workspace.selectCompareRevision}
+                    onToggleSnapshotJson={workspace.toggleRevisionSnapshotJson}
+                  />
+                  <BlueprintLineagePanel
+                    blueprint={workspace.draftBlueprint}
+                    revisions={workspace.projectRevisions}
+                    agentRunJournal={workspace.agentRunJournal}
+                  />
+                </div>
+              </details>
               {advancedStorageTools}
             </>
           ) : (

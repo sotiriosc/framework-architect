@@ -44,7 +44,7 @@ Use this checklist before deeper manual testing or release packaging.
 - [ ] Confirm raw idea, target user, problem, intended outcome, MVP, expansion, risks, and hidden opportunities are populated.
 - [ ] Create the blueprint and confirm validation is build-ready.
 - [ ] Confirm the Source Lineage panel shows the same template orientation.
-- [ ] Export Markdown, Codex Task Pack, MVP Checklist, and Lineage Report for the spot-check blueprint.
+- [ ] Export Markdown, Codex Task Pack, MVP Checklist, Lineage Report, and Expansion Roadmap for the spot-check blueprint.
 - [ ] Confirm MVP and expansion remain separate in the generated blueprint and exports.
 
 ### Sample Praxis Feature Import Text
@@ -119,8 +119,8 @@ Hidden opportunities:
 - Praxis can use this to build features more safely
 ```
 
-## Validation, Quality, Foresight, Planning, And Agent Harness
-- [ ] In the workspace inspector, confirm Validation appears before Quality Review, Foresight appears before Implementation Plan, Agent Run Harness appears after Implementation Plan, and Export appears after the harness.
+## Validation, Quality, Foresight, Expansion, Planning, And Agent Harness
+- [ ] In the workspace inspector, confirm Validation appears before Quality Review, Foresight appears before Expansion Roadmap, Expansion Roadmap appears before Implementation Plan, Agent Run Harness appears after Implementation Plan, and Export remains available in outputs/provenance.
 - [ ] Confirm Validation explains structural correctness and shows build-ready as yes for the guided blueprint.
 - [ ] Confirm Quality Review explains usefulness, specificity, template fit, clarity, and implementation readiness.
 - [ ] Confirm safe/manual/risky fixes are visible when relevant.
@@ -130,6 +130,11 @@ Hidden opportunities:
 - [ ] Convert one hidden opportunity to expansion.
 - [ ] Convert one risk to a decision record.
 - [ ] Confirm validation still passes after each foresight action.
+- [ ] Open Expansion Roadmap.
+- [ ] Confirm an "AI agent" or "Direct ChatGPT integration" style expansion idea becomes a staged governed path rather than only repeated text.
+- [ ] Confirm the staged path includes prerequisites, risks, suggested experiments or metrics, and not-yet boundaries.
+- [ ] Confirm not-yet autonomous execution, automatic merging, or unscoped edits are clearly deferred for AI-agent paths.
+- [ ] Confirm the expansion path is not added to MVP scope and does not change blueprint truth.
 - [ ] Open Implementation Plan.
 - [ ] Confirm readiness is ready-for-sequencing or ready-for-codex.
 - [ ] Confirm task groups include Praxis feature boundary, invariant protection, UI surface, regression coverage, and export/Codex handoff.
@@ -171,9 +176,12 @@ Hidden opportunities:
 - [ ] Export JSON.
 - [ ] Export MVP Checklist.
 - [ ] Export Lineage Report.
+- [ ] Export Expansion Roadmap.
 - [ ] Confirm exported text keeps MVP and expansion scope distinct.
 - [ ] Confirm the Markdown export includes a concise lineage summary, not the full lineage report.
+- [ ] Confirm the Markdown export includes a concise expansion roadmap summary, not the full expansion roadmap report.
 - [ ] Confirm the Lineage Report includes seed, orientation, nourishment, fruit, trust boundaries, and warnings.
+- [ ] Confirm the Expansion Roadmap export includes stages, prerequisites, risks, and not-yet boundaries.
 - [ ] Confirm the Markdown export includes a concise foresight summary.
 - [ ] Confirm the Codex Prompt includes rules, invariants, guardrails, validation expectations, recommended future work, and do-not-build-yet guidance.
 - [ ] Confirm the Codex Task Pack includes Praxis do-not-break constraints for program generation, progression logic, phase gating, validation, existing tests, and coaching clarity.
